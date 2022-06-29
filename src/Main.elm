@@ -59,6 +59,9 @@ update msg model =
 
 
     Flip n ->
+      -- this seems silly, having to make so many copies of date to update a single nested record
+      -- I like everything together, but maybe I should move the show record higher??
+
       let old_player = model.player in
       let old_card = (Maybe.withDefault cardDefault (Array.get n old_player.cards)) in
 
