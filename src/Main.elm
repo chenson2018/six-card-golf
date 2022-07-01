@@ -200,14 +200,14 @@ viewPlayer n_player player =
  ]
 
 
--- just the view for nowm but also needs an action...
+-- I need something to view cards independent of actions
+
 viewDeck: Model -> Html Msg
 viewDeck model = 
   let dummy = {face = Cards.Knight, suit = Cards.Spades, show = False} in
 
   div
   [ style "font-size" "10em"
-    , style "color" "black"
     , style "user-select" "none"
     , style "line-height" "150px"
     , style "position" "fixed"
@@ -215,13 +215,23 @@ viewDeck model =
     , style "top" "40%"
   ]
   [
-  span [onClick Discard] 
+  span [onClick Discard, style "color" "black"] 
        [ 
         text (if (Array.length model.deck > 0) then (cardText dummy) else "")
 --      , text (String.fromInt (Array.length model.deck))
        ]
- , span [] [text (cardText model.discard)]      
    ]
+
+viewDiscard: Model -> Html Msg
+viewDiscard model = 
+        div
+        [ style "font-size" "10em"
+       , style "user-select" "none"
+       , style "line-height" "150px"
+       , style "position" "fixed"
+       , style "left" "52%"
+       , style "top" "40%"]
+        [span [style "color" (cardColor model.discard)] [text (cardText model.discard)]]
 
 view : Model -> Html Msg
 view model =
@@ -230,6 +240,7 @@ view model =
        [
             Array.toList (Array.indexedMap viewPlayer model.players)
           , [viewDeck model]
+          , [viewDiscard model] --probably need another place on the board for cards under consideration
        ]
       )
 
