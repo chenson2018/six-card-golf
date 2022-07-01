@@ -33,7 +33,8 @@ type alias Player = {cards: Array Card, score: Int}
 type alias Model =
   {
      deck: Array Card
-   , player: Array Player
+   , discard: Card
+   , players: Array Player
    , n_player: Int
   }
 
@@ -43,6 +44,7 @@ init : () -> (Model, Cmd Msg)
 init _ =
     (Model
         (Array.fromList []) 
+        Cards.cardDefault
         (Array.fromList []) 
         4,
      Random.generate Deal (shuffle orderedDeck))
@@ -52,6 +54,7 @@ init _ =
 type Msg
   = Flip Int Int
   | Deal (List Card)
+  | Discard
 
 splitArray: Int -> Array a -> (Array a, Array a)
 splitArray n arr = 
@@ -63,7 +66,7 @@ splitArray n arr =
 flipCard: Int -> Int -> Model -> Model
 flipCard n_player n_card model = 
         -- this is an array of players
-        let old_players = model.player in
+        let old_players = model.players in
         case Array.get n_player old_players of
             -- this is the player we want to flip a card for
             Just old_player ->
@@ -72,7 +75,7 @@ flipCard n_player n_card model =
                             let new_card = {old_card | show = not old_card.show} in
                             let new_player = {old_player | cards = Array.set n_card new_card old_player.cards} in
                             let new_players = Array.set n_player new_player old_players in
-                            { model | player = new_players }
+                            { model | players = new_players }
                     Nothing -> model
             Nothing -> model
 
@@ -96,9 +99,12 @@ update msg model =
     Deal newDeck ->
         let deck_arr = Array.fromList newDeck in
         let (player,deck) = deal model.n_player dealHelper (Array.empty, deck_arr) in
+        -- one more for the discard
+        let (discard,final_deck) = splitArray 1 deck in
 
            (Model 
-              deck 
+              final_deck
+              (Maybe.withDefault Cards.cardDefault (Array.get 0 discard))
               player
               model.n_player,
             Cmd.none)
@@ -108,9 +114,13 @@ update msg model =
       , Cmd.none
       )
 
+    Discard ->
+      let (discard,deck) = splitArray 1 model.deck in
+      case (Array.get 0 discard) of
+          Just card -> ({model| deck = deck, discard = card}, Cmd.none)
+          Nothing -> (model, Cmd.none)
 
 -- SUBSCRIPTIONS
-
 
 subscriptions : Model -> Sub Msg
 subscriptions model =
@@ -190,8 +200,37 @@ viewPlayer n_player player =
  ]
 
 
+-- just the view for nowm but also needs an action...
+viewDeck: Model -> Html Msg
+viewDeck model = 
+  let dummy = {face = Cards.Knight, suit = Cards.Spades, show = False} in
+
+  div
+  [ style "font-size" "10em"
+    , style "color" "black"
+    , style "user-select" "none"
+    , style "line-height" "150px"
+    , style "position" "fixed"
+    , style "left" "45%"
+    , style "top" "40%"
+  ]
+  [
+  span [onClick Discard] 
+       [ 
+        text (if (Array.length model.deck > 0) then (cardText dummy) else "")
+--      , text (String.fromInt (Array.length model.deck))
+       ]
+ , span [] [text (cardText model.discard)]      
+   ]
+
 view : Model -> Html Msg
 view model =
-  div []  (Array.toList (Array.indexedMap viewPlayer model.player))
+  div []  
+      (List.concat 
+       [
+            Array.toList (Array.indexedMap viewPlayer model.players)
+          , [viewDeck model]
+       ]
+      )
 
 
