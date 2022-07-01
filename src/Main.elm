@@ -28,7 +28,7 @@ main =
 
 -- MODEL
 
-type alias Player = {cards: Array Card, score: Int}
+type alias Player = {cards: Array Card, score: Int, lock_flip: Bool}
 
 type alias Model =
   {
@@ -70,10 +70,16 @@ flipCard n_player n_card model =
         case Array.get n_player old_players of
             -- this is the player we want to flip a card for
             Just old_player ->
+                 -- here, we need to decide is a flip is allowed
+                 let n_showing = Array.foldl (+) 0 (Array.map (\c -> if c.show then 1 else 0) old_player.cards) in
+                 let new_lock = n_showing >= 1 in
+                 let old_lock = n_showing >= 2 in
+
+                 if old_lock then model else
                  case Array.get n_card old_player.cards of
                     Just old_card -> 
                             let new_card = {old_card | show = not old_card.show} in
-                            let new_player = {old_player | cards = Array.set n_card new_card old_player.cards} in
+                            let new_player = {old_player | cards = Array.set n_card new_card old_player.cards, lock_flip = new_lock} in
                             let new_players = Array.set n_player new_player old_players in
                             { model | players = new_players }
                     Nothing -> model
@@ -85,7 +91,7 @@ dealHelper tup =
     case tup of
        (player_arr, deck) -> 
                let (new_player,new_deck) = splitArray 6 deck in
-               (Array.push {cards = new_player, score = 0} player_arr, new_deck)
+               (Array.push {cards = new_player, score = 0, lock_flip = False} player_arr, new_deck)
 
 
 deal: Int -> ((Array Player, Array Card) -> (Array Player, Array Card)) -> (Array Player, Array Card) -> (Array Player, Array Card)
@@ -102,12 +108,14 @@ update msg model =
         -- one more for the discard
         let (discard,final_deck) = splitArray 1 deck in
 
-           (Model 
+        case (Array.get 0 discard) of
+           Just card -> (Model 
               final_deck
-              (Maybe.withDefault Cards.cardDefault (Array.get 0 discard))
+              {card | show = True}
               player
               model.n_player,
             Cmd.none)
+           Nothing -> Debug.todo "failed to make initial discard"
 
     Flip n_player n_card ->
       ( flipCard n_player n_card model
@@ -117,7 +125,7 @@ update msg model =
     Discard ->
       let (discard,deck) = splitArray 1 model.deck in
       case (Array.get 0 discard) of
-          Just card -> ({model| deck = deck, discard = card}, Cmd.none)
+          Just card -> ({model| deck = deck, discard = {card| show = True}}, Cmd.none)
           Nothing -> (model, Cmd.none)
 
 -- SUBSCRIPTIONS
