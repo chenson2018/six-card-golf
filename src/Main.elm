@@ -50,7 +50,7 @@ init _ =
 -- UPDATE
 
 type Msg
-  = Flip Int
+  = Flip Int Int
   | Deal (List Card)
 
 splitArray: Int -> Array a -> (Array a, Array a)
@@ -60,11 +60,25 @@ splitArray n arr =
        (front,back)
 
 
-flipCard: Int -> Model -> Model
-flipCard n model = 
-      -- this seems silly, having to make so many copies of date to update a single nested record
-      -- I like everything together, but maybe I should move the show record higher??
-      model
+flipCard: Int -> Int -> Model -> Model
+flipCard n_player n_card model = 
+        -- this is an array of players
+        let old_players = model.player in
+        case Array.get n_player old_players of
+            -- this is the player we want to flip a card for
+            Just old_player ->
+                 case Array.get n_card old_player.cards of
+                    Just old_card -> 
+                            let new_card = {old_card | show = not old_card.show} in
+                            let new_player = {old_player | cards = Array.set n_card new_card old_player.cards} in
+                            let new_players = Array.set n_player new_player old_players in
+                            { model | player = new_players }
+                    Nothing -> model
+            Nothing -> model
+          
+
+
+
 --      let old_player = model.player in
 --      let old_card = (Maybe.withDefault cardDefault (Array.get n old_player.cards)) in
 --
@@ -99,8 +113,8 @@ update msg model =
               model.n_player,
             Cmd.none)
 
-    Flip n ->
-      ( flipCard n model
+    Flip n_player n_card ->
+      ( flipCard n_player n_card model
       , Cmd.none
       )
 
@@ -115,13 +129,13 @@ subscriptions model =
 
 -- VIEW
 
-viewCard: Int -> Array Card -> String -> Html Msg
-viewCard idx player color = 
+viewCard: Int -> Int -> Array Card -> String -> Html Msg
+viewCard n_player idx player color = 
   let card = (Maybe.withDefault cardDefault (Array.get idx player)) in
 
   span
    [ 
-      onClick (Flip idx)
+      onClick (Flip n_player idx)
     , style "font-size" "10em"
     , style "color" (cardColor card)
     , style "user-select" "none"
@@ -148,17 +162,17 @@ viewPlayer n_player player =
 --           style "background-color" "orange"
        ]
      [
-         viewCard 0 player.cards "green"
-       , viewCard 1 player.cards "red"
-       , viewCard 2 player.cards "green"
+         viewCard n_player 0 player.cards "green"
+       , viewCard n_player 1 player.cards "red"
+       , viewCard n_player 2 player.cards "green"
      ]
  , div [
 --         style "background-color" "yellow"
        ]
      [
-         viewCard 3 player.cards "red"
-       , viewCard 4 player.cards "green"
-       , viewCard 5 player.cards "red"
+         viewCard n_player 3 player.cards "red"
+       , viewCard n_player 4 player.cards "green"
+       , viewCard n_player 5 player.cards "red"
      ]
  ]
 
