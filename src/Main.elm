@@ -44,7 +44,7 @@ init _ =
     (Model
         (Array.fromList []) 
         (Array.fromList []) 
-        2,
+        4,
      Random.generate Deal (shuffle orderedDeck))
 
 -- UPDATE
@@ -75,17 +75,7 @@ flipCard n_player n_card model =
                             { model | player = new_players }
                     Nothing -> model
             Nothing -> model
-          
 
-
-
---      let old_player = model.player in
---      let old_card = (Maybe.withDefault cardDefault (Array.get n old_player.cards)) in
---
---      let new_card = {old_card | show = not old_card.show} in
---      let new_player = {old_player| cards =  Array.set n new_card old_player.cards} in
---
---      {model| player = new_player }
 
 dealHelper: (Array Player, Array Card) -> (Array Player, Array Card)
 dealHelper tup = 
@@ -147,16 +137,39 @@ viewCard n_player idx player color =
    ]      
 
 
+positionPlayer: Int -> List (Attribute msg)
+positionPlayer n =
+        case n of
+           0 ->   [
+              style "position" "fixed"
+            , style "bottom" "1%"
+            , style "left" "45%"
+            --, style "background-color" "orange"
+            ] 
+           1 ->   [
+              style "position" "fixed"
+            , style "top" "1%"
+            , style "left" "45%"
+            --, style "background-color" "orange"
+            ] 
+           2 ->   [
+              style "position" "fixed"
+            , style "right" "1%"
+            , style "top" "40%"
+            --, style "background-color" "orange"
+            ] 
+           3 ->   [
+              style "position" "fixed"
+            , style "top" "40%"
+            , style "left" "1%"
+            --, style "background-color" "orange"
+            ] 
+           _ -> [] 
 
 viewPlayer: Int -> Player -> Html Msg
 viewPlayer n_player player = 
-      div [
---              style "position" "fixed"
---            , style "bottom" "1%"
---            , style "left" "45%"
---            , style "background-color" "orange"
-             style "padding-bottom" "100px"
-          ] 
+      div
+      (positionPlayer n_player)
   [
    div [
 --           style "background-color" "orange"
@@ -181,16 +194,4 @@ view : Model -> Html Msg
 view model =
   div []  (Array.toList (Array.indexedMap viewPlayer model.player))
 
-
-
-
---          (Maybe.withDefault cardDefault (Array.get idx player))
---        (viewPlayer model.player.cards)
---      , div [
---              style "position" "fixed"
---            , style "top" "1%"
---            , style "left" "45%"
-----            , style "background-color" "orange"
---          ] 
---          (viewPlayer model.player.cards)
 
