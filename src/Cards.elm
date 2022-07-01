@@ -81,7 +81,27 @@ faceOffset face =
     Knight -> 12
     Queen -> 13
     King -> 14
-         
+
+
+cardVal: Card -> Int
+cardVal card = 
+  case card.face of
+    Ace -> 1
+    Two -> -2
+    Three ->3
+    Four -> 4 
+    Five -> 5
+    Six -> 6
+    Seven -> 7
+    Eight -> 8
+    Nine -> 9
+    Ten -> 10
+    Jack -> 10
+    Knight -> 999
+    Queen -> 10
+    King -> 0
+
+
 suitOffset: Suit -> Int
 suitOffset suit = 
   case suit of 

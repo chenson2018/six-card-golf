@@ -46,7 +46,7 @@ init _ =
         (Array.fromList []) 
         Cards.cardDefault
         (Array.fromList []) 
-        4,
+        2,
      Random.generate Deal (shuffle orderedDeck))
 
 -- UPDATE
@@ -200,6 +200,19 @@ viewPlayer n_player player =
  ]
 
 
+scoreCol: (Card,Card) -> Int
+scoreCol rows = 
+    case rows of
+    (top,bot) -> if top.face == bot.face then 0 else (Cards.cardVal bot)+(Cards.cardVal top)
+
+scorePlayer: Player -> Int
+scorePlayer player = 
+        let top_row = Array.toList (Array.slice 0 3 player.cards) in
+        let bot_row = Array.toList (Array.slice 3 6 player.cards) in
+        let zip = List.map2 Tuple.pair top_row bot_row in
+        let vals = List.map scoreCol zip in
+        List.foldl (+) 0 vals
+
 -- I need something to view cards independent of actions
 
 viewDeck: Model -> Html Msg
@@ -241,6 +254,7 @@ view model =
             Array.toList (Array.indexedMap viewPlayer model.players)
           , [viewDeck model]
           , [viewDiscard model] --probably need another place on the board for cards under consideration
+--          , (Array.toList (Array.map (\p -> text ("Player" ++ String.fromInt (scorePlayer p) ++ "...")) model.players))
        ]
       )
 
