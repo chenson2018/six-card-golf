@@ -90,7 +90,7 @@ flipCard n_player n_card model =
                  if old_lock then model else
                  case Array.get n_card old_player.cards of
                     Just old_card -> 
-                            let new_card = {old_card | show = not old_card.show} in
+                            let new_card = {old_card | show = True } in
                             let new_player = {old_player | cards = Array.set n_card new_card old_player.cards, lock_flip = new_lock} in
                             let new_players = Array.set n_player new_player old_players in
 
