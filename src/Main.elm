@@ -54,7 +54,7 @@ init _ =
         True
         0 -- this gets incremented one extra time to really start at 1
         0
-        1,
+        3,
      Random.generate Deal (shuffle orderedDeck))
 
 -- UPDATE
@@ -181,59 +181,84 @@ viewCard n_player idx player color =
    ]      
 
 
-positionPlayer: Int -> List (Attribute msg)
-positionPlayer n =
-        case n of
-           0 ->   [
+type Position = 
+   Top
+ | Bot
+ | Left
+ | Right
+
+positionPlayer: Position -> List (Attribute msg)
+positionPlayer pos =
+        case pos of
+           Bot ->   [
               style "position" "fixed"
             , style "bottom" "1%"
             , style "left" "45%"
             --, style "background-color" "orange"
             ] 
-           1 ->   [
+           Top ->   [
               style "position" "fixed"
             , style "top" "1%"
             , style "left" "45%"
             --, style "background-color" "orange"
             ] 
-           2 ->   [
+           Right ->   [
               style "position" "fixed"
             , style "right" "1%"
             , style "top" "40%"
             --, style "background-color" "orange"
             ] 
-           3 ->   [
+           Left ->   [
               style "position" "fixed"
             , style "top" "40%"
             , style "left" "1%"
             --, style "background-color" "orange"
             ] 
-           _ -> [] 
 
-viewPlayer: Int -> Player -> Html Msg
-viewPlayer n_player player = 
-      div
-      (positionPlayer n_player)
-  [
-   div [
---           style "background-color" "orange"
-       ]
-     [
-         viewCard n_player 0 player.cards "green"
-       , viewCard n_player 1 player.cards "red"
-       , viewCard n_player 2 player.cards "green"
-     ]
- , div [
---         style "background-color" "yellow"
-       ]
-     [
-         viewCard n_player 3 player.cards "red"
-       , viewCard n_player 4 player.cards "green"
-       , viewCard n_player 5 player.cards "red"
-     ]
- , div [] [text ("Player " ++ (String.fromInt n_player))]
- ]
+viewPlayer: Int -> Model -> Html Msg
+viewPlayer n_player model = 
+      case Array.get n_player model.players of
+         Just player -> div  (n_player |> (getPos model) |> positionPlayer) [
+                          div [
+                       --           style "background-color" "orange"
+                              ]
+                            [
+                                viewCard n_player 0 player.cards "green"
+                              , viewCard n_player 1 player.cards "red"
+                              , viewCard n_player 2 player.cards "green"
+                            ]
+                        , div [
+                       --         style "background-color" "yellow"
+                              ]
+                            [
+                                viewCard n_player 3 player.cards "red"
+                              , viewCard n_player 4 player.cards "green"
+                              , viewCard n_player 5 player.cards "red"
+                            ]
+                        , div [] [text ("Player " ++ (String.fromInt n_player))]
 
+                 ]
+         Nothing -> div [] [] --weird case at begining when deal hasn't happened yet
+
+
+-- this logic is very messy....
+
+getPos: Model -> Int -> Position
+getPos model n_player = 
+        case model.n_players of
+            2 -> if modBy 2 (n_player + model.perspective) == 0 then Bot else Top
+            3 ->  case model.perspective of
+                    0 -> if n_player == 0 then Bot  else if n_player == 1 then Top   else Right
+                    1 -> if n_player == 0 then Top  else if n_player == 1 then Bot   else Left
+                    2 -> if n_player == 0 then Left else if n_player == 1 then Right else Bot
+                    _ -> Debug.todo "invalid perspective"
+            4 ->  case model.perspective of
+                    0 -> if n_player == 0 then Bot   else if n_player == 3 then Left  else if n_player == 1 then Top   else Right
+                    1 -> if n_player == 0 then Top   else if n_player == 3 then Right else if n_player == 1 then Bot   else Left
+                    2 -> if n_player == 0 then Left  else if n_player == 3 then Top   else if n_player == 1 then Right else Bot
+                    3 -> if n_player == 0 then Right else if n_player == 3 then Bot   else if n_player == 1 then Left  else Top
+                    _ -> Debug.todo "invalid perspective"
+            _ -> Debug.todo ((String.fromInt model.n_players) ++ " players not implemented")
 
 scoreCol: (Card,Card) -> Int
 scoreCol rows = 
@@ -286,7 +311,7 @@ view model =
   div []  
       (List.concat 
        [
-            Array.toList (Array.indexedMap viewPlayer model.players)
+            List.map (\n_player -> viewPlayer n_player model) (List.range 0 (model.n_players - 1))
           , [viewDeck model]
           , [viewDiscard model] --probably need another place on the board for cards under consideration
           , [div [] [text ("setting_up: " ++ (if model.setting_up then "true" else "false"))]]
