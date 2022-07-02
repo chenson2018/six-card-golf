@@ -39,6 +39,7 @@ type alias Model =
    , setting_up: Bool
    , hole: Int
    , turn: Int
+   , perspective: Int -- this needs to be gotten from the websocket somehow????
   }
 
 -- player size is hardcoded here right now as 2
@@ -49,10 +50,11 @@ init _ =
         (Array.fromList []) 
         Cards.cardDefault
         (Array.fromList []) 
-        2
+        4
         True
         0 -- this gets incremented one extra time to really start at 1
-        0,
+        0
+        1,
      Random.generate Deal (shuffle orderedDeck))
 
 -- UPDATE
@@ -135,7 +137,8 @@ update msg model =
               model.n_players
               True
               (model.hole + 1)
-              0,
+              0
+              model.perspective,
             Cmd.none)
            Nothing -> Debug.todo "failed to make initial discard"
 
@@ -228,6 +231,7 @@ viewPlayer n_player player =
        , viewCard n_player 4 player.cards "green"
        , viewCard n_player 5 player.cards "red"
      ]
+ , div [] [text ("Player " ++ (String.fromInt n_player))]
  ]
 
 
@@ -262,7 +266,6 @@ viewDeck model =
   span [onClick DeckClick, style "color" "black"] 
        [ 
         text (if (Array.length model.deck > 0) then (cardText dummy) else "")
---      , text (String.fromInt (Array.length model.deck))
        ]
    ]
 
@@ -277,6 +280,7 @@ viewDiscard model =
        , style "top" "40%"]
         [span [style "color" (cardColor model.discard)] [text (cardText model.discard)]]
 
+
 view : Model -> Html Msg
 view model =
   div []  
@@ -285,10 +289,13 @@ view model =
             Array.toList (Array.indexedMap viewPlayer model.players)
           , [viewDeck model]
           , [viewDiscard model] --probably need another place on the board for cards under consideration
---          , (Array.toList (Array.map (\p -> text ("Player" ++ String.fromInt (scorePlayer p) ++ "...")) model.players))
-          , [div [] [text (if model.setting_up then "setup..." else "setup done!")]]
+          , [div [] [text ("setting_up: " ++ (if model.setting_up then "true" else "false"))]]
+          , [div [] [text ("\nPlaying as: " ++ "Player " ++ (String.fromInt model.perspective))]]
           , [div [] [text ("\nHole: " ++ (String.fromInt model.hole))]]
-          , [div [] [text ("\nTurn (mod n_players + 1): Player " ++ (String.fromInt ((modBy model.n_players model.turn)+1)))]]
+          , [div [] [text ("\nTurn: " ++ (String.fromInt model.turn))]]
+          , [div [] [text ("\nTurn (mod n_players): Player " ++ (String.fromInt (modBy model.n_players model.turn)))]]
+          , [div [] [text ("Cards remaining in deck: " ++ (String.fromInt (Array.length model.deck)))]]
+          , (Array.toList (Array.indexedMap (\i -> \p -> div [] [text ("Player " ++ (String.fromInt i) ++ " Score: " ++ String.fromInt (scorePlayer p))]) model.players))
        ]
       )
 

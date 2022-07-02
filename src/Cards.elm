@@ -51,7 +51,7 @@ type alias Card = {face: Face, suit: Suit, show: Bool}
 
 orderedDeck: List Card
 orderedDeck =
-  List.concat (List.map (\s -> List.map (\f -> {face = f, suit = s, show = False}) faces )suits)
+  List.concat (List.map (\s -> List.map (\f -> {face = f, suit = s, show = True}) faces )suits)
 
 
 cardDefault: Card
