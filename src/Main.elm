@@ -51,7 +51,7 @@ init _ =
         (Array.fromList []) 
         2
         True
-        1
+        0 -- this gets incremented one extra time to really start at 1
         0,
      Random.generate Deal (shuffle orderedDeck))
 
@@ -60,7 +60,7 @@ init _ =
 type Msg
   = Flip Int Int
   | Deal (List Card)
-  | Discard
+  | DeckClick
 
 splitArray: Int -> Array a -> (Array a, Array a)
 splitArray n arr = 
@@ -144,7 +144,8 @@ update msg model =
       , Cmd.none
       )
 
-    Discard ->
+    -- currently moves to discard, but should really move to consideration area...
+    DeckClick ->
       let (discard,deck) = splitArray 1 model.deck in
       case (Array.get 0 discard) of
           Just card -> ({model| deck = deck, discard = {card| show = True}}, Cmd.none)
@@ -258,7 +259,7 @@ viewDeck model =
     , style "top" "40%"
   ]
   [
-  span [onClick Discard, style "color" "black"] 
+  span [onClick DeckClick, style "color" "black"] 
        [ 
         text (if (Array.length model.deck > 0) then (cardText dummy) else "")
 --      , text (String.fromInt (Array.length model.deck))
