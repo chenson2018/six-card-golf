@@ -35,7 +35,10 @@ type alias Model =
      deck: Array Card
    , discard: Card
    , players: Array Player
-   , n_player: Int
+   , n_players: Int
+   , setting_up: Bool
+   , hole: Int
+   , turn: Int
   }
 
 -- player size is hardcoded here right now as 2
@@ -46,7 +49,10 @@ init _ =
         (Array.fromList []) 
         Cards.cardDefault
         (Array.fromList []) 
-        2,
+        2
+        True
+        1
+        0,
      Random.generate Deal (shuffle orderedDeck))
 
 -- UPDATE
@@ -63,6 +69,10 @@ splitArray n arr =
        (front,back)
 
 
+playerSettingUp: Player -> Bool
+playerSettingUp player =
+   (Array.foldl (+) 0 (Array.map (\c -> if c.show then 1 else 0) player.cards)) < 2
+
 flipCard: Int -> Int -> Model -> Model
 flipCard n_player n_card model = 
         -- this is an array of players
@@ -75,13 +85,22 @@ flipCard n_player n_card model =
                  let new_lock = n_showing >= 1 in
                  let old_lock = n_showing >= 2 in
 
+
+
                  if old_lock then model else
                  case Array.get n_card old_player.cards of
                     Just old_card -> 
                             let new_card = {old_card | show = not old_card.show} in
                             let new_player = {old_player | cards = Array.set n_card new_card old_player.cards, lock_flip = new_lock} in
                             let new_players = Array.set n_player new_player old_players in
-                            { model | players = new_players }
+
+                            let new_model = { model | players = new_players } in
+
+                            -- check if all are locked and can exit setup stage
+                           let any_setup = Array.map (playerSettingUp) new_model.players |> Array.toList |> (List.any (\x -> x)) in
+
+                           {new_model | setting_up = any_setup} 
+
                     Nothing -> model
             Nothing -> model
 
@@ -104,7 +123,7 @@ update msg model =
 
     Deal newDeck ->
         let deck_arr = Array.fromList newDeck in
-        let (player,deck) = deal model.n_player dealHelper (Array.empty, deck_arr) in
+        let (player,deck) = deal model.n_players dealHelper (Array.empty, deck_arr) in
         -- one more for the discard
         let (discard,final_deck) = splitArray 1 deck in
 
@@ -113,7 +132,10 @@ update msg model =
               final_deck
               {card | show = True}
               player
-              model.n_player,
+              model.n_players
+              True
+              (model.hole + 1)
+              0,
             Cmd.none)
            Nothing -> Debug.todo "failed to make initial discard"
 
@@ -263,6 +285,9 @@ view model =
           , [viewDeck model]
           , [viewDiscard model] --probably need another place on the board for cards under consideration
 --          , (Array.toList (Array.map (\p -> text ("Player" ++ String.fromInt (scorePlayer p) ++ "...")) model.players))
+          , [div [] [text (if model.setting_up then "setup..." else "setup done!")]]
+          , [div [] [text ("\nHole: " ++ (String.fromInt model.hole))]]
+          , [div [] [text ("\nTurn (mod n_players + 1): Player " ++ (String.fromInt ((modBy model.n_players model.turn)+1)))]]
        ]
       )
 
