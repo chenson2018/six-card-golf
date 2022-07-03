@@ -1,20 +1,41 @@
-use actix_files::Files;
-use actix_web::{App, HttpServer};
+//! Simple echo websocket server.
+//!
+//! Open `http://localhost:8080/` in browser to test.
+
+use actix_files::{NamedFile,Files};
+use actix_web::{middleware, web, App, Error, HttpRequest, HttpResponse, HttpServer, Responder};
+use actix_web_actors::ws;
+
+mod server;
+use self::server::MyWebSocket;
+
+async fn index() -> impl Responder {
+    NamedFile::open_async("./frontend/index.html").await.unwrap()
+}
+
+/// WebSocket handshake and start `MyWebSocket` actor.
+async fn echo_ws(req: HttpRequest, stream: web::Payload) -> Result<HttpResponse, Error> {
+    ws::start(MyWebSocket::new(), &req, stream)
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    const HOST: &str = if cfg!(windows) {
-        "localhost"
-    } else {
-        "0.0.0.0"
-    };
+    //env_logger::init_from_env(env_logger::Env::new().default_filter_or("info"));
 
-    const PORT: u16 = 8001;
+    //log::info!("starting HTTP server at http://localhost:8080");
 
-    println!("Starting server at: {}:{}", HOST, PORT);
-
-    HttpServer::new(|| App::new().service(Files::new("/", "./frontend/")))
-        .bind(format!("{}:{}", HOST, PORT))?
-        .run()
-        .await
+    HttpServer::new(|| {
+        App::new()
+            .service(Files::new("/files", "./frontend/"))
+            // WebSocket UI HTML file
+            .service(web::resource("/").to(index))
+            // websocket route
+            .service(web::resource("/ws").route(web::get().to(echo_ws)))
+            // enable logger
+            .wrap(middleware::Logger::default())
+    })
+    .workers(2)
+    .bind(("0.0.0.0", 8001))?
+    .run()
+    .await
 }

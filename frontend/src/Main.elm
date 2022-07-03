@@ -4,15 +4,16 @@
 --   elm install elm/random
 --
 
-module Main exposing (..)
+port module Main exposing (..)
 import Browser
 import Html exposing (..)
-import Html.Attributes exposing (style, class)
+import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Cards exposing (..)
 import Random
 import Array exposing (Array)
 import Array
+import Json.Decode as D
 
 import Random.List exposing (shuffle)
 
@@ -25,6 +26,11 @@ main =
     , subscriptions = subscriptions
     , view = view
     }
+
+-- PORTS
+
+port sendMessage : String -> Cmd msg
+port messageReceiver : (String -> msg) -> Sub msg
 
 -- MODEL
 
@@ -41,6 +47,8 @@ type alias Model =
    , turn: Int
    , perspective: Int -- this needs to be gotten from the websocket somehow????
    , room_setup: Bool
+   , draft : String
+   , messages : List String
   }
 
 -- player size is hardcoded here right now as 2
@@ -56,7 +64,9 @@ init _ =
         0 -- this gets incremented one extra time to really start at 1
         0
         3
-        True,
+        True
+        ""
+        [],
      --Random.generate Deal (shuffle orderedDeck))
         Cmd.none)
 
@@ -67,6 +77,9 @@ type Msg
   | Deal (List Card)
   | DeckClick
   | ClickDeal
+  | DraftChanged String
+  | Send
+  | Recv String
 
 splitArray: Int -> Array a -> (Array a, Array a)
 splitArray n arr = 
@@ -127,6 +140,21 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
 
+    DraftChanged draft ->
+      ( { model | draft = draft }
+      , Cmd.none
+      )
+
+    Send ->
+      ( { model | draft = "" }
+      , sendMessage model.draft
+      )
+
+    Recv message ->
+      ( { model | messages = model.messages ++ [message] }
+      , Cmd.none
+      )
+
     ClickDeal -> (model, Random.generate Deal (shuffle orderedDeck))
 
     Deal newDeck ->
@@ -145,7 +173,8 @@ update msg model =
               (model.hole + 1)
               0
               model.perspective
-              False,
+              False
+              model.draft model.messages,
             Cmd.none)
            Nothing -> Debug.todo "failed to make initial discard"
 
@@ -164,9 +193,8 @@ update msg model =
 -- SUBSCRIPTIONS
 
 subscriptions : Model -> Sub Msg
-subscriptions model =
-  Sub.none
-
+subscriptions _ =
+  messageReceiver Recv
 
 -- VIEW
 
@@ -320,9 +348,31 @@ view model =
         , viewSelect model
         ]
 
-roomView: Model -> Html Msg
-roomView model = 
-  div [] [ button [onClick ClickDeal] [text "Deal"] ]
+--roomView: Model -> Html Msg
+--roomView model = 
+--  div [] [ button [onClick ClickDeal] [text "Deal"] ]
+
+roomView : Model -> Html Msg
+roomView model =
+  div []
+    [ h1 [] [ text "Echo Chat" ]
+    , ul []
+        (List.map (\msg -> li [] [ text msg ]) model.messages)
+    , input
+        [ type_ "text"
+        , placeholder "Draft"
+        , onInput DraftChanged
+        , on "keydown" (ifIsEnter Send)
+        , value model.draft
+        ]
+        []
+    , button [ onClick Send ] [ text "Send" ]
+    ]
+
+ifIsEnter : msg -> D.Decoder msg
+ifIsEnter msg =
+  D.field "key" D.string
+    |> D.andThen (\key -> if key == "Enter" then D.succeed msg else D.fail "some other key")
 
 viewSelect : Model -> Html Msg
 viewSelect model =
