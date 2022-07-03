@@ -13,7 +13,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
             .service(Files::new("/", "../frontend/"))
     })
-    .bind(format!("{}:{}", HOST, PORT)).unwrap()
+    .bind(format!("{}:{}", HOST, PORT))?
     .run()
     .await
 }
