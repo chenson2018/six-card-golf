@@ -1,7 +1,7 @@
-run-dev: elm rust
+run-dev: elm rust-run
 
 elm:
 	make -C frontend
 
-rust:
+rust-run:
 	cargo run --manifest-path=backend/Cargo.toml

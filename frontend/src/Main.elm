@@ -318,7 +318,7 @@ view model =
           , [div [] [text ("\nPlaying as: " ++ "Player " ++ (String.fromInt model.perspective))]]
           , [div [] [text ("\nHole: " ++ (String.fromInt model.hole))]]
           , [div [] [text ("\nTurn: " ++ (String.fromInt model.turn))]]
-          , [div [] [text ("\nTurn (mod n_players): Player " ++ (String.fromInt (modBy model.n_players model.turn)))]]
+          , [div [] [text ("\nTurn: Player " ++ (String.fromInt (modBy model.n_players model.turn)))]]
           , [div [] [text ("Cards remaining in deck: " ++ (String.fromInt (Array.length model.deck)))]]
           , (Array.toList (Array.indexedMap (\i -> \p -> div [] [text ("Player " ++ (String.fromInt i) ++ " Score: " ++ String.fromInt (scorePlayer p))]) model.players))
        ]
