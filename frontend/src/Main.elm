@@ -7,7 +7,7 @@
 module Main exposing (..)
 import Browser
 import Html exposing (..)
-import Html.Attributes exposing (style)
+import Html.Attributes exposing (style, class)
 import Html.Events exposing (..)
 import Cards exposing (..)
 import Random
@@ -40,6 +40,7 @@ type alias Model =
    , hole: Int
    , turn: Int
    , perspective: Int -- this needs to be gotten from the websocket somehow????
+   , room_setup: Bool
   }
 
 -- player size is hardcoded here right now as 2
@@ -54,8 +55,10 @@ init _ =
         True
         0 -- this gets incremented one extra time to really start at 1
         0
-        3,
-     Random.generate Deal (shuffle orderedDeck))
+        3
+        True,
+     --Random.generate Deal (shuffle orderedDeck))
+        Cmd.none)
 
 -- UPDATE
 
@@ -63,6 +66,7 @@ type Msg
   = Flip Int Int
   | Deal (List Card)
   | DeckClick
+  | ClickDeal
 
 splitArray: Int -> Array a -> (Array a, Array a)
 splitArray n arr = 
@@ -123,6 +127,8 @@ update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
 
+    ClickDeal -> (model, Random.generate Deal (shuffle orderedDeck))
+
     Deal newDeck ->
         let deck_arr = Array.fromList newDeck in
         let (player,deck) = deal model.n_players dealHelper (Array.empty, deck_arr) in
@@ -138,7 +144,8 @@ update msg model =
               True
               (model.hole + 1)
               0
-              model.perspective,
+              model.perspective
+              False,
             Cmd.none)
            Nothing -> Debug.todo "failed to make initial discard"
 
@@ -308,6 +315,24 @@ viewDiscard model =
 
 view : Model -> Html Msg
 view model =
+    div [ class "container" ]
+        [ h3 [] [ text "Six Card Golf" ]
+        , viewSelect model
+        ]
+
+roomView: Model -> Html Msg
+roomView model = 
+  div [] [ button [onClick ClickDeal] [text "Deal"] ]
+
+viewSelect : Model -> Html Msg
+viewSelect model =
+    if model.room_setup then
+        roomView model
+    else
+        playView model
+
+playView : Model -> Html Msg
+playView model =
   div []  
       (List.concat 
        [
