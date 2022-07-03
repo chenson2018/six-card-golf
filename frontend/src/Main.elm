@@ -48,7 +48,8 @@ type alias Model =
    , perspective: Int -- this needs to be gotten from the websocket somehow????
    , room_setup: Bool
    , draft : String
-   , messages : List String
+   , messages : String
+   , name : String
   }
 
 -- player size is hardcoded here right now as 2
@@ -66,9 +67,8 @@ init _ =
         3
         True
         ""
-        [],
-     --Random.generate Deal (shuffle orderedDeck))
-        Cmd.none)
+        ""
+        "", Cmd.none)
 
 -- UPDATE
 
@@ -80,6 +80,7 @@ type Msg
   | DraftChanged String
   | Send
   | Recv String
+--  | RecordName
 
 splitArray: Int -> Array a -> (Array a, Array a)
 splitArray n arr = 
@@ -146,12 +147,12 @@ update msg model =
       )
 
     Send ->
-      ( { model | draft = "" }
-      , sendMessage model.draft
+      ( { model | name = model.draft }
+      , Cmd.batch [ sendMessage "/list", sendMessage model.draft]
       )
 
     Recv message ->
-      ( { model | messages = model.messages ++ [message] }
+      ( { model | messages = message }
       , Cmd.none
       )
 
@@ -174,7 +175,7 @@ update msg model =
               0
               model.perspective
               False
-              model.draft model.messages,
+              model.draft model.messages model.name,
             Cmd.none)
            Nothing -> Debug.todo "failed to make initial discard"
 
@@ -355,18 +356,27 @@ view model =
 roomView : Model -> Html Msg
 roomView model =
   div []
-    [ h1 [] [ text "Echo Chat" ]
-    , ul []
-        (List.map (\msg -> li [] [ text msg ]) model.messages)
-    , input
-        [ type_ "text"
-        , placeholder "Draft"
-        , onInput DraftChanged
-        , on "keydown" (ifIsEnter Send)
-        , value model.draft
+    [
+        div [] [text ("Draft: " ++ model.draft)]
+      , div [] [text ("Name: "  ++ model.name )]
+      , div [] [text ("Currently connected players: " ++ model.messages)]
+      , if String.isEmpty model.name then
+        div []
+        [
+           input
+           [ type_ "text"
+           , placeholder "Enter a name"
+           , onInput DraftChanged
+   --        , on "keydown" (ifIsEnter Send)
+           , value model.draft
+           ]
+           []
+--        ,  button [ onClick RecordName, onClick Send ] [ text "Submit" ]
+--        ,  button [ onClick Send, onClick RecordName] [ text "Submit" ]
+          ,  button [ onClick Send] [ text "Submit" ]
         ]
-        []
-    , button [ onClick Send ] [ text "Send" ]
+      else  
+        button [ onClick ClickDeal ] [ text "Begin game" ]
     ]
 
 ifIsEnter : msg -> D.Decoder msg
