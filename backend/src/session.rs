@@ -4,7 +4,7 @@ use actix::prelude::*;
 use actix_web_actors::ws;
 
 use crate::server;
-use crate::server::WSResponse;
+use crate::server::WSResponse2;
 
 /// How often heartbeat pings are sent
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(5);
@@ -140,7 +140,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                                 .then(|res, _, ctx| {
                                     match res {
                                         Ok(players) => {
-                                              let resp = WSResponse { kind: "players".to_string(), values: players };
+                                              let resp = WSResponse2 { kind: "players".to_string(), values: players };
                                               let json = serde_json::to_string(&resp).unwrap();
                                               //ctx.text(players.join(","));
                                               ctx.text(json);

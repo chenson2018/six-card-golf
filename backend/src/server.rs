@@ -58,6 +58,18 @@ pub struct WSResponse {
   pub values: Vec<String>
 }
 
+#[derive(Serialize,Deserialize)]
+pub struct WSResponse2 {
+  pub kind: String,
+  pub values: Vec<Name>
+}
+
+#[derive(Serialize,Deserialize,Clone,Debug)]
+pub struct Name {
+  pub id: usize,
+  pub name: String
+}
+
 /// List of available rooms
 pub struct ListRooms;
 
@@ -69,7 +81,7 @@ impl actix::Message for ListRooms {
 pub struct ListPlayers;
 
 impl actix::Message for ListPlayers {
-    type Result = Vec<String>;
+    type Result = Vec<Name>;
 }
 
 /// Join room, if room does not exists create new one.
@@ -93,7 +105,7 @@ pub struct ChatServer {
     rng: ThreadRng,
     visitor_count: Arc<AtomicUsize>,
     //names: Arc<Vec<String>>,
-    names: Vec<String>,
+    names: Vec<Name>,
 }
 
 impl ChatServer {
@@ -182,10 +194,18 @@ impl Handler<Disconnect> for ChatServer {
                 }
             }
         }
+
+        self.names = self.names.clone().into_iter().filter(|x| &x.id != &msg.id).collect();
+
+        
+
         // send message to other users
-//        for room in rooms {
+        for room in rooms {
+            let resp = WSResponse2 { kind: "players".to_string(), values: self.names.clone() };
+            let json = serde_json::to_string(&resp).unwrap();
+            self.send_message(&room, &json, 0);
 //            self.send_message(&room, "Someone disconnected", 0);
-//        }
+        }
     }
 }
 
@@ -195,11 +215,11 @@ impl Handler<ClientMessage> for ChatServer {
 
     fn handle(&mut self, msg: ClientMessage, _: &mut Context<Self>) {
 //        Arc::get_mut(&mut self.names).unwrap().push(msg.msg.as_str().to_string());
-        self.names.push(msg.msg.as_str().to_string());
+        self.names.push(Name{ id: msg.id, name: msg.msg.as_str().to_string()});
 //        println!("{:?}", self.names);
         //self.send_message(&msg.room, msg.msg.as_str(), msg.id);
 
-        let resp = WSResponse { kind: "players".to_string(), values: self.names.clone() };
+        let resp = WSResponse2 { kind: "players".to_string(), values: self.names.clone() };
         let json = serde_json::to_string(&resp).unwrap();
 
         self.send_message(&msg.room, &json, msg.id);
