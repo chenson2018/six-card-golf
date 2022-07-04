@@ -1,6 +1,7 @@
 module Cards exposing (..)
 
 import Random
+import Json.Encode as Encode
 
 type Face
   = Ace
@@ -133,5 +134,34 @@ cardColor card =
     Diamonds -> "red"
     Clubs -> "black"
 
+
+
+encodeCard: Card -> Encode.Value
+encodeCard card = 
+  let face = case card.face of 
+                Ace -> "Ace"
+                Two -> "Two"
+                Three -> "Three"
+                Four -> "Four"
+                Five -> "Five"
+                Six -> "Six"
+                Seven -> "Seven"
+                Eight -> "Eight"
+                Nine -> "Nine"
+                Ten -> "Ten"
+                Jack -> "Jack"
+                Queen -> "Queen"
+                Knight -> "Knight"
+                King -> "King"
+  in
+
+  let suit = case card.suit of
+                 Spades -> "Spades"
+                 Hearts -> "Hearts"
+                 Diamonds -> "Diamonds"
+                 Clubs -> "Clubs"
+  in
+
+  Encode.object [ ("suit", Encode.string suit), ("face", Encode.string face), ("show", Encode.bool card.show) ]
 
 

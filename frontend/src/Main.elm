@@ -10,6 +10,7 @@ import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Cards exposing (..)
+import Players exposing (..)
 import Random
 import Array exposing (Array)
 import Array
@@ -33,14 +34,19 @@ main =
 port sendMessage : String -> Cmd msg
 port messageReceiver : (String -> msg) -> Sub msg
 
+type WSMessage 
+  = List
+  | Name String
+  | ModelMessage Model
+
+sendEncode: WSMessage -> Cmd msg
+sendEncode kind = 
+  case kind of
+    List   -> sendMessage (Encode.encode 0 (Encode.object [ ("kind", Encode.string "list") ]))
+    Name s -> sendMessage (Encode.encode 0 (Encode.object [ ("kind", Encode.string "name"), ("name", Encode.string s) ]))
+    ModelMessage model -> sendMessage (Encode.encode 0 (encodeModel model))
+
 -- MODEL
-
-type alias Player = {cards: Array Card, score: Int, lock_flip: Bool}
-
-encodePlayer: Player -> Encode.Value
-encodePlayer player = 
-   Encode.object [ ("cards", Encode.array encodeCard player.cards), ("score", Encode.int player.score), ("lock_flip", Encode.bool player.lock_flip) ]
-  
 
 type alias Model =
   {
@@ -58,35 +64,22 @@ type alias Model =
    , name : String
   }
 
-encodeCard: Card -> Encode.Value
-encodeCard card = 
-  let face = case card.face of 
-                Ace -> "Ace"
-                Two -> "Two"
-                Three -> "Three"
-                Four -> "Four"
-                Five -> "Five"
-                Six -> "Six"
-                Seven -> "Seven"
-                Eight -> "Eight"
-                Nine -> "Nine"
-                Ten -> "Ten"
-                Jack -> "Jack"
-                Queen -> "Queen"
-                Knight -> "Knight"
-                King -> "King"
-  in
 
-  let suit = case card.suit of
-                 Spades -> "Spades"
-                 Hearts -> "Hearts"
-                 Diamonds -> "Diamonds"
-                 Clubs -> "Clubs"
-  in
-
-  Encode.object [ ("suit", Encode.string suit), ("face", Encode.string face), ("show", Encode.bool card.show) ]
-
-
+init : () -> (Model, Cmd Msg)
+init _ =
+    (Model
+        (Array.fromList []) 
+        Cards.cardDefault
+        (Array.fromList []) 
+        4
+        True
+        0 -- this gets incremented one extra time to really start at 1
+        0
+        3
+        True
+        ""
+        ""
+        "", Cmd.none)
 
 encodeModel: Model -> Encode.Value
 encodeModel model = 
@@ -105,29 +98,6 @@ encodeModel model =
       , ( "name", Encode.string model.name )
     ]
 
-type WSMessage 
-  = List
-  | Name String
-  | ModelMessage Model
-
--- player size is hardcoded here right now as 2
-
-init : () -> (Model, Cmd Msg)
-init _ =
-    (Model
-        (Array.fromList []) 
-        Cards.cardDefault
-        (Array.fromList []) 
-        4
-        True
-        0 -- this gets incremented one extra time to really start at 1
-        0
-        3
-        True
-        ""
-        ""
-        "", Cmd.none)
-
 -- UPDATE
 
 type Msg
@@ -139,17 +109,6 @@ type Msg
   | Send
   | Recv String
   | SendModel
-
-splitArray: Int -> Array a -> (Array a, Array a)
-splitArray n arr = 
-   let front = Array.slice 0 n arr in
-   let back = Array.slice n (Array.length arr) arr in
-       (front,back)
-
-
-playerSettingUp: Player -> Bool
-playerSettingUp player =
-   (Array.foldl (+) 0 (Array.map (\c -> if c.show then 1 else 0) player.cards)) < 2
 
 flipCard: Int -> Int -> Model -> Model
 flipCard n_player n_card model = 
@@ -182,27 +141,6 @@ flipCard n_player n_card model =
                     Nothing -> model
             Nothing -> model
 
-
-dealHelper: (Array Player, Array Card) -> (Array Player, Array Card)
-dealHelper tup = 
-    case tup of
-       (player_arr, deck) -> 
-               let (new_player,new_deck) = splitArray 6 deck in
-               (Array.push {cards = new_player, score = 0, lock_flip = False} player_arr, new_deck)
-
-
-deal: Int -> ((Array Player, Array Card) -> (Array Player, Array Card)) -> (Array Player, Array Card) -> (Array Player, Array Card)
-deal i f acc = 
-        if i <= 0 then acc else deal (i-1) f (f acc)
-
-
-sendEncode: WSMessage -> Cmd msg
-sendEncode kind = 
-  case kind of
-    List   -> sendMessage (Encode.encode 0 (Encode.object [ ("kind", Encode.string "list") ]))
-    Name s -> sendMessage (Encode.encode 0 (Encode.object [ ("kind", Encode.string "name"), ("name", Encode.string s) ]))
-    ModelMessage model -> sendMessage (Encode.encode 0 (encodeModel model))
-
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
@@ -231,7 +169,7 @@ update msg model =
 
     Deal newDeck ->
         let deck_arr = Array.fromList newDeck in
-        let (player,deck) = deal model.n_players dealHelper (Array.empty, deck_arr) in
+        let (players,deck) = deal model.n_players dealHelper (Array.empty, deck_arr) in
         -- one more for the discard
         let (discard,final_deck) = splitArray 1 deck in
 
@@ -239,7 +177,7 @@ update msg model =
            Just card -> let m  = Model 
                                    final_deck
                                    {card | show = True}
-                                   player
+                                   players
                                    model.n_players
                                    True
                                    (model.hole + 1)
