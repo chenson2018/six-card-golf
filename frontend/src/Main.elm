@@ -1,23 +1,20 @@
--- Press a button to draw a random card.
---
--- Dependencies:
---   elm install elm/random
---
-
 port module Main exposing (..)
+
 import Browser
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
-import Cards exposing (..)
-import Players exposing (..)
-import Random
-import Array exposing (Array)
-import Array
+
 import Json.Decode as D
 import Json.Encode as Encode
 
+import Random
 import Random.List exposing (shuffle)
+
+import Cards exposing (..)
+import Players exposing (..)
+import Array exposing (Array)
+import Array
 
 -- MAIN
 
