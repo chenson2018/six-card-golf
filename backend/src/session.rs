@@ -179,6 +179,9 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                             room: self.room.clone(),
                         })
                     }
+                    "model" => {
+                       println!("{:?}", &text);
+                     }
                     _ => panic!("Unknown websocket command"),
                 }
             }

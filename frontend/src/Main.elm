@@ -37,6 +37,11 @@ port messageReceiver : (String -> msg) -> Sub msg
 
 type alias Player = {cards: Array Card, score: Int, lock_flip: Bool}
 
+encodePlayer: Player -> Encode.Value
+encodePlayer player = 
+   Encode.object [ ("cards", Encode.array encodeCard player.cards), ("score", Encode.int player.score), ("lock_flip", Encode.bool player.lock_flip) ]
+  
+
 type alias Model =
   {
      deck: Array Card
@@ -53,14 +58,57 @@ type alias Model =
    , name : String
   }
 
+encodeCard: Card -> Encode.Value
+encodeCard card = 
+  let face = case card.face of 
+                Ace -> "Ace"
+                Two -> "Two"
+                Three -> "Three"
+                Four -> "Four"
+                Five -> "Five"
+                Six -> "Six"
+                Seven -> "Seven"
+                Eight -> "Eight"
+                Nine -> "Nine"
+                Ten -> "Ten"
+                Jack -> "Jack"
+                Queen -> "Queen"
+                Knight -> "Knight"
+                King -> "King"
+  in
+
+  let suit = case card.suit of
+                 Spades -> "Spades"
+                 Hearts -> "Hearts"
+                 Diamonds -> "Diamonds"
+                 Clubs -> "Clubs"
+  in
+
+  Encode.object [ ("suit", Encode.string suit), ("face", Encode.string face), ("show", Encode.bool card.show) ]
+
+
+
 encodeModel: Model -> Encode.Value
 encodeModel model = 
   Encode.object
-    [ ( "name", Encode.string "Tom" ) ]
+    [   ("kind", Encode.string "model")
+      , ( "deck", Encode.array encodeCard model.deck )
+      , ( "discard", encodeCard model.discard )
+      , ( "players", Encode.array encodePlayer model.players )
+      , ( "setting_up", Encode.bool model.setting_up )
+      , ( "hole", Encode.int model.hole )
+      , ( "turn", Encode.int model.turn )
+      , ( "perspective", Encode.int model.perspective )
+      , ( "room_setup", Encode.bool model.room_setup )
+      , ( "draft", Encode.string model.draft )
+      , ( "messages", Encode.string model.messages )
+      , ( "name", Encode.string model.name )
+    ]
 
 type WSMessage 
   = List
   | Name String
+  | ModelMessage Model
 
 -- player size is hardcoded here right now as 2
 
@@ -90,7 +138,7 @@ type Msg
   | DraftChanged String
   | Send
   | Recv String
---  | RecordName
+  | SendModel
 
 splitArray: Int -> Array a -> (Array a, Array a)
 splitArray n arr = 
@@ -153,6 +201,7 @@ sendEncode kind =
   case kind of
     List   -> sendMessage (Encode.encode 0 (Encode.object [ ("kind", Encode.string "list") ]))
     Name s -> sendMessage (Encode.encode 0 (Encode.object [ ("kind", Encode.string "name"), ("name", Encode.string s) ]))
+    ModelMessage model -> sendMessage (Encode.encode 0 (encodeModel model))
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -173,7 +222,12 @@ update msg model =
       , Cmd.none
       )
 
-    ClickDeal -> (model, Random.generate Deal (shuffle orderedDeck))
+    SendModel -> (model, sendEncode (ModelMessage model))
+
+    ClickDeal -> (
+                  model, 
+                  Random.generate Deal (shuffle orderedDeck)
+                 )
 
     Deal newDeck ->
         let deck_arr = Array.fromList newDeck in
@@ -182,18 +236,21 @@ update msg model =
         let (discard,final_deck) = splitArray 1 deck in
 
         case (Array.get 0 discard) of
-           Just card -> (Model 
-              final_deck
-              {card | show = True}
-              player
-              model.n_players
-              True
-              (model.hole + 1)
-              0
-              model.perspective
-              False
-              model.draft model.messages model.name,
-            Cmd.none)
+           Just card -> let m  = Model 
+                                   final_deck
+                                   {card | show = True}
+                                   player
+                                   model.n_players
+                                   True
+                                   (model.hole + 1)
+                                   0
+                                   model.perspective
+                                   False
+                                   model.draft model.messages model.name
+              in
+
+              update SendModel m            
+
            Nothing -> Debug.todo "failed to make initial discard"
 
     Flip n_player n_card ->
