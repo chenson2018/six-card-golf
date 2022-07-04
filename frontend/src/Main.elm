@@ -14,6 +14,7 @@ import Random
 import Array exposing (Array)
 import Array
 import Json.Decode as D
+import Json.Encode as Encode
 
 import Random.List exposing (shuffle)
 
@@ -51,6 +52,15 @@ type alias Model =
    , messages : String
    , name : String
   }
+
+encodeModel: Model -> Encode.Value
+encodeModel model = 
+  Encode.object
+    [ ( "name", Encode.string "Tom" ) ]
+
+type WSMessage 
+  = List
+  | Name String
 
 -- player size is hardcoded here right now as 2
 
@@ -137,6 +147,13 @@ deal: Int -> ((Array Player, Array Card) -> (Array Player, Array Card)) -> (Arra
 deal i f acc = 
         if i <= 0 then acc else deal (i-1) f (f acc)
 
+
+sendEncode: WSMessage -> Cmd msg
+sendEncode kind = 
+  case kind of
+    List   -> sendMessage (Encode.encode 0 (Encode.object [ ("kind", Encode.string "list") ]))
+    Name s -> sendMessage (Encode.encode 0 (Encode.object [ ("kind", Encode.string "name"), ("name", Encode.string s) ]))
+
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
@@ -148,7 +165,7 @@ update msg model =
 
     Send ->
       ( { model | name = model.draft }
-      , Cmd.batch [ sendMessage "/list", sendMessage model.draft]
+      , Cmd.batch [ sendEncode List, sendEncode (Name model.draft)]
       )
 
     Recv message ->

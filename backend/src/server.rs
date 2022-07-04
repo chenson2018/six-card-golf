@@ -52,22 +52,22 @@ use serde_json::to_string;
 // need more structure for the actual game...
 // am I going to serialize the entire game state?
 // probably simplest, but seems excessive...
-#[derive(Serialize,Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct WSResponse {
-  pub kind: String,
-  pub values: Vec<String>
+    pub kind: String,
+    pub values: Vec<String>,
 }
 
-#[derive(Serialize,Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct WSResponse2 {
-  pub kind: String,
-  pub values: Vec<Name>
+    pub kind: String,
+    pub values: Vec<Name>,
 }
 
-#[derive(Serialize,Deserialize,Clone,Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Name {
-  pub id: usize,
-  pub name: String
+    pub id: usize,
+    pub name: String,
 }
 
 /// List of available rooms
@@ -195,16 +195,22 @@ impl Handler<Disconnect> for ChatServer {
             }
         }
 
-        self.names = self.names.clone().into_iter().filter(|x| &x.id != &msg.id).collect();
-
-        
+        self.names = self
+            .names
+            .clone()
+            .into_iter()
+            .filter(|x| &x.id != &msg.id)
+            .collect();
 
         // send message to other users
         for room in rooms {
-            let resp = WSResponse2 { kind: "players".to_string(), values: self.names.clone() };
+            let resp = WSResponse2 {
+                kind: "players".to_string(),
+                values: self.names.clone(),
+            };
             let json = serde_json::to_string(&resp).unwrap();
             self.send_message(&room, &json, 0);
-//            self.send_message(&room, "Someone disconnected", 0);
+            //            self.send_message(&room, "Someone disconnected", 0);
         }
     }
 }
@@ -214,18 +220,23 @@ impl Handler<ClientMessage> for ChatServer {
     type Result = ();
 
     fn handle(&mut self, msg: ClientMessage, _: &mut Context<Self>) {
-//        Arc::get_mut(&mut self.names).unwrap().push(msg.msg.as_str().to_string());
-        self.names.push(Name{ id: msg.id, name: msg.msg.as_str().to_string()});
-//        println!("{:?}", self.names);
+        //        Arc::get_mut(&mut self.names).unwrap().push(msg.msg.as_str().to_string());
+        self.names.push(Name {
+            id: msg.id,
+            name: msg.msg.as_str().to_string(),
+        });
+        //        println!("{:?}", self.names);
         //self.send_message(&msg.room, msg.msg.as_str(), msg.id);
 
-        let resp = WSResponse2 { kind: "players".to_string(), values: self.names.clone() };
+        let resp = WSResponse2 {
+            kind: "players".to_string(),
+            values: self.names.clone(),
+        };
         let json = serde_json::to_string(&resp).unwrap();
 
         self.send_message(&msg.room, &json, msg.id);
     }
 }
-
 
 /// Handler for `ListPlayers` message.
 impl Handler<ListPlayers> for ChatServer {
