@@ -152,6 +152,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                                             values: players,
                                         };
                                         let json = serde_json::to_string(&resp).unwrap();
+                                        println!("{:?}", &json);
                                         //ctx.text(players.join(","));
                                         ctx.text(json);
                                     }

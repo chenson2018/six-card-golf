@@ -49,15 +49,6 @@ pub struct ClientMessage {
 use serde::{Deserialize, Serialize};
 use serde_json::to_string;
 
-// need more structure for the actual game...
-// am I going to serialize the entire game state?
-// probably simplest, but seems excessive...
-#[derive(Serialize, Deserialize)]
-pub struct WSResponse {
-    pub kind: String,
-    pub values: Vec<String>,
-}
-
 #[derive(Serialize, Deserialize)]
 pub struct WSResponse2 {
     pub kind: String,
@@ -249,7 +240,7 @@ impl Handler<ListPlayers> for ChatServer {
             rooms.push(key.to_owned())
         }
 
-        println!("{:?}", rooms);
+        //println!("{:?}", rooms);
 
         MessageResult(rooms)
     }

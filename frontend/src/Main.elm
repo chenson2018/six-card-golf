@@ -57,8 +57,8 @@ type alias Model =
    , perspective: Int -- this needs to be gotten from the websocket somehow????
    , room_setup: Bool
    , draft : String
-   , messages : String
    , name : String
+   , player_names: List WSName
   }
 
 
@@ -68,7 +68,7 @@ init _ =
         (Array.fromList []) 
         Cards.cardDefault
         (Array.fromList []) 
-        4
+        0
         True
         0 -- this gets incremented one extra time to really start at 1
         0
@@ -76,7 +76,7 @@ init _ =
         True
         ""
         ""
-        "", Cmd.none)
+        [], Cmd.none)
 
 encodeModel: Model -> Encode.Value
 encodeModel model = 
@@ -91,7 +91,6 @@ encodeModel model =
       , ( "perspective", Encode.int model.perspective )
       , ( "room_setup", Encode.bool model.room_setup )
       , ( "draft", Encode.string model.draft )
-      , ( "messages", Encode.string model.messages )
       , ( "name", Encode.string model.name )
     ]
 
@@ -138,6 +137,25 @@ flipCard n_player n_card model =
                     Nothing -> model
             Nothing -> model
 
+
+type alias WSName = {id: Int, name: String}
+type alias RustWSResponse2 = { kind: String, values: List WSName }
+
+
+nameDecoder: D.Decoder WSName
+nameDecoder = 
+  D.map2
+    WSName
+      (D.field "id" D.int)
+      (D.field "name" D.string)
+
+websocketDecoder : D.Decoder RustWSResponse2
+websocketDecoder =
+    D.map2
+        RustWSResponse2
+        (D.field "kind" D.string)
+        (D.field "values" (D.list nameDecoder))
+
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
@@ -153,9 +171,13 @@ update msg model =
       )
 
     Recv message ->
-      ( { model | messages = message }
-      , Cmd.none
-      )
+      let ws_json = D.decodeString websocketDecoder message in
+
+      case ws_json of
+        Ok json -> case json.kind of
+                    "players" -> ({model| player_names = json.values}, Cmd.none)
+                    _ -> Debug.todo "didn't match a kind"
+        _ -> Debug.todo "invalid json"
 
     SendModel -> (model, sendEncode (ModelMessage model))
 
@@ -166,27 +188,15 @@ update msg model =
 
     Deal newDeck ->
         let deck_arr = Array.fromList newDeck in
-        let (players,deck) = deal model.n_players dealHelper (Array.empty, deck_arr) in
+        let n_players = List.length model.player_names in
+        let (players,deck) = deal n_players dealHelper (Array.empty, deck_arr) in
         -- one more for the discard
         let (discard,final_deck) = splitArray 1 deck in
 
         case (Array.get 0 discard) of
-           Just card -> let m  = Model 
-                                   final_deck
-                                   {card | show = True}
-                                   players
-                                   model.n_players
-                                   True
-                                   (model.hole + 1)
-                                   0
-                                   model.perspective
-                                   False
-                                   model.draft model.messages model.name
-              in
-
-              update SendModel m            
-
-           Nothing -> Debug.todo "failed to make initial discard"
+          Just card -> let m = Model final_deck {card | show = True} players n_players True (model.hole + 1) 0 model.perspective False model.draft model.name model.player_names in
+                       update SendModel m
+          Nothing -> Debug.todo "failed to make initial discard"
 
     Flip n_player n_card ->
       ( flipCard n_player n_card model
@@ -358,17 +368,14 @@ view model =
         , viewSelect model
         ]
 
---roomView: Model -> Html Msg
---roomView model = 
---  div [] [ button [onClick ClickDeal] [text "Deal"] ]
-
 roomView : Model -> Html Msg
 roomView model =
   div []
     [
         div [] [text ("Draft: " ++ model.draft)]
+      , div [] [text ("Room setup: "  ++ (if model.room_setup then "true" else "false"))]
       , div [] [text ("Name: "  ++ model.name )]
-      , div [] [text ("Currently connected players: " ++ model.messages)]
+      , div [] [text ("Currently connected players: " ++ (String.join ", " (List.map (\x -> x.name) model.player_names)))]
       , if String.isEmpty model.name then
         div []
         [
@@ -380,8 +387,6 @@ roomView model =
            , value model.draft
            ]
            []
---        ,  button [ onClick RecordName, onClick Send ] [ text "Submit" ]
---        ,  button [ onClick Send, onClick RecordName] [ text "Submit" ]
           ,  button [ onClick Send] [ text "Submit" ]
         ]
       else  
