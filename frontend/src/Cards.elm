@@ -2,6 +2,7 @@ module Cards exposing (..)
 
 import Random
 import Json.Encode as Encode
+import Json.Decode as D
 
 type Face
   = Ace
@@ -165,3 +166,44 @@ encodeCard card =
   Encode.object [ ("suit", Encode.string suit), ("face", Encode.string face), ("show", Encode.bool card.show) ]
 
 
+decodeFace: D.Decoder Face
+decodeFace = D.string |>
+  D.andThen
+    (\str ->
+      case str of
+       "Ace"    -> D.succeed Ace
+       "Two"    -> D.succeed Two
+       "Three"  -> D.succeed Three
+       "Four"   -> D.succeed Four
+       "Five"   -> D.succeed Five
+       "Six"    -> D.succeed Six
+       "Seven"  -> D.succeed Seven
+       "Eight"  -> D.succeed Eight
+       "Nine"   -> D.succeed Nine
+       "Ten"    -> D.succeed Ten
+       "Jack"   -> D.succeed Jack
+       "Queen"  -> D.succeed Queen
+       "Knight" -> D.succeed Knight
+       "King"   -> D.succeed King
+       _          -> D.fail "Invalid Suit"
+    )
+
+decodeSuit: D.Decoder Suit
+decodeSuit = D.string |>
+  D.andThen
+    (\str ->
+      case str of
+       "Spades"   -> D.succeed Spades
+       "Hearts"   -> D.succeed Hearts
+       "Diamonds" -> D.succeed Diamonds
+       "Clubs"    -> D.succeed Clubs
+       _          -> D.fail "Invalid Suit"
+    )
+
+decodeCard: D.Decoder Card
+decodeCard = 
+  D.map3
+    Card
+      (D.field "face" decodeFace)
+      (D.field "suit" decodeSuit)
+      (D.field "show" D.bool)

@@ -206,6 +206,27 @@ impl Handler<Disconnect> for ChatServer {
     }
 }
 
+/// Send message to specific room
+#[derive(Message)]
+#[rtype(result = "()")]
+pub struct ModelMessage {
+    /// Id of the client session
+    pub id: usize,
+    /// Peer message
+    pub msg: String,
+    /// Room name
+    pub room: String,
+}
+
+/// Handler for Message message.
+impl Handler<ModelMessage> for ChatServer {
+    type Result = ();
+
+    fn handle(&mut self, msg: ModelMessage, _: &mut Context<Self>) {
+        self.send_message(&msg.room, &msg.msg, msg.id);
+    }
+}
+
 /// Handler for Message message.
 impl Handler<ClientMessage> for ChatServer {
     type Result = ();

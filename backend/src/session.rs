@@ -182,6 +182,13 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                     }
                     "model" => {
                        println!("{:?}", &text);
+//                       ctx.text(text);
+
+                       self.addr.do_send(server::ModelMessage {
+                           id: self.id,
+                           msg: text.to_string(),
+                           room: self.room.clone(),
+                       })
                      }
                     _ => panic!("Unknown websocket command"),
                 }

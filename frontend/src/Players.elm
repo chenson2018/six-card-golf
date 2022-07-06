@@ -1,6 +1,8 @@
 module Players exposing (..)
 
 import Json.Encode as Encode
+import Json.Decode as D
+
 import Array exposing (Array)
 import Cards exposing (..)
 
@@ -12,6 +14,14 @@ encodePlayer player =
                   , ("score", Encode.int player.score)
                   , ("lock_flip", Encode.bool player.lock_flip) ]
 
+
+decodePlayer: D.Decoder Player
+decodePlayer = 
+  D.map3
+    Player 
+      (D.field "cards" (D.array decodeCard))
+      (D.field "score" D.int)
+      (D.field "lock_flip" D.bool)
 
 playerSettingUp: Player -> Bool
 playerSettingUp player =

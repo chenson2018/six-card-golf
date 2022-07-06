@@ -51,15 +51,38 @@ type alias Model =
    , discard: Card
    , players: Array Player
    , n_players: Int
-   , setting_up: Bool
+   , stage: Stage
    , hole: Int
    , turn: Int
    , perspective: Int -- this needs to be gotten from the websocket somehow????
-   , room_setup: Bool
    , draft : String
    , name : String
    , player_names: List WSName
   }
+
+
+type Stage
+  = RoomSetup
+  | HoleSetup 
+  | Turns
+
+stageString: Stage -> String
+stageString stage = 
+  case stage of
+    RoomSetup -> "RoomSetup"
+    HoleSetup -> "HoleSetup"
+    Turns -> "Turns"
+
+decodeStage: D.Decoder Stage
+decodeStage = D.string |>
+  D.andThen
+    (\str ->
+      case str of
+       "RoomSetup" -> D.succeed RoomSetup
+       "HoleSetup" -> D.succeed HoleSetup
+       "Turns"     -> D.succeed Turns
+       _           -> D.fail "Invalid Stage"
+    )
 
 
 init : () -> (Model, Cmd Msg)
@@ -69,11 +92,10 @@ init _ =
         Cards.cardDefault
         (Array.fromList []) 
         0
-        True
+        RoomSetup
         0 -- this gets incremented one extra time to really start at 1
         0
-        3
-        True
+        0
         ""
         ""
         [], Cmd.none)
@@ -81,18 +103,42 @@ init _ =
 encodeModel: Model -> Encode.Value
 encodeModel model = 
   Encode.object
-    [   ("kind", Encode.string "model")
+    [   ( "kind", Encode.string "model")
       , ( "deck", Encode.array encodeCard model.deck )
       , ( "discard", encodeCard model.discard )
       , ( "players", Encode.array encodePlayer model.players )
-      , ( "setting_up", Encode.bool model.setting_up )
+      , ( "stage", Encode.string (stageString model.stage) )
       , ( "hole", Encode.int model.hole )
       , ( "turn", Encode.int model.turn )
-      , ( "perspective", Encode.int model.perspective )
-      , ( "room_setup", Encode.bool model.room_setup )
-      , ( "draft", Encode.string model.draft )
-      , ( "name", Encode.string model.name )
     ]
+
+-- partial 
+type alias PartialModel =
+  {
+     deck: Array Card
+   , discard: Card
+   , players: Array Player
+   , stage: Stage
+   , hole: Int
+   , turn: Int
+  }
+
+
+fromPartial: Model -> PartialModel -> Model
+fromPartial model p =
+  { model | deck = p.deck, discard = p.discard, players = p.players, stage = p.stage, hole = p.hole, turn = p.turn }
+
+
+decodePartial: D.Decoder PartialModel
+decodePartial = 
+  D.map6
+    PartialModel
+      (D.field "deck" (D.array decodeCard))
+      (D.field "discard" decodeCard)
+      (D.field "players" (D.array decodePlayer))
+      (D.field "stage" decodeStage)
+      (D.field "hole" D.int)
+      (D.field "hole" D.int)
 
 -- UPDATE
 
@@ -132,7 +178,7 @@ flipCard n_player n_card model =
                             -- check if all are locked and can exit setup stage
                            let any_setup = Array.map (playerSettingUp) new_model.players |> Array.toList |> (List.any (\x -> x)) in
 
-                           {new_model | setting_up = any_setup} 
+                           {new_model | stage = (if any_setup then HoleSetup else Turns)} 
 
                     Nothing -> model
             Nothing -> model
@@ -170,14 +216,18 @@ update msg model =
       , Cmd.batch [ sendEncode List, sendEncode (Name model.draft)]
       )
 
+    -- this is meh, waterfall each json type that I can get from Rust
     Recv message ->
       let ws_json = D.decodeString websocketDecoder message in
 
       case ws_json of
         Ok json -> case json.kind of
-                    "players" -> ({model| player_names = json.values}, Cmd.none)
+                    "players" -> ({model| player_names = json.values, n_players = (List.length json.values)}, Cmd.none)
                     _ -> Debug.todo "didn't match a kind"
-        _ -> Debug.todo "invalid json"
+        _ -> let pmodel_json = D.decodeString decodePartial message in
+             case pmodel_json of 
+              Ok p -> (fromPartial model p, Cmd.none)
+              _    -> Debug.todo "invalid json"
 
     SendModel -> (model, sendEncode (ModelMessage model))
 
@@ -194,14 +244,13 @@ update msg model =
         let (discard,final_deck) = splitArray 1 deck in
 
         case (Array.get 0 discard) of
-          Just card -> let m = Model final_deck {card | show = True} players n_players True (model.hole + 1) 0 model.perspective False model.draft model.name model.player_names in
+          Just card -> let m = Model final_deck {card | show = True} players n_players HoleSetup (model.hole + 1) 0 model.perspective model.draft model.name model.player_names in
                        update SendModel m
           Nothing -> Debug.todo "failed to make initial discard"
 
     Flip n_player n_card ->
-      ( flipCard n_player n_card model
-      , Cmd.none
-      )
+      let m = flipCard n_player n_card model in
+      update SendModel m
 
     -- currently moves to discard, but should really move to consideration area...
     DeckClick ->
@@ -368,12 +417,13 @@ view model =
         , viewSelect model
         ]
 
+
 roomView : Model -> Html Msg
 roomView model =
   div []
     [
         div [] [text ("Draft: " ++ model.draft)]
-      , div [] [text ("Room setup: "  ++ (if model.room_setup then "true" else "false"))]
+      , div [] [text ("Stage: "  ++ (stageString model.stage))]
       , div [] [text ("Name: "  ++ model.name )]
       , div [] [text ("Currently connected players: " ++ (String.join ", " (List.map (\x -> x.name) model.player_names)))]
       , if String.isEmpty model.name then
@@ -400,10 +450,10 @@ ifIsEnter msg =
 
 viewSelect : Model -> Html Msg
 viewSelect model =
-    if model.room_setup then
-        roomView model
-    else
-        playView model
+  case model.stage of
+   RoomSetup -> roomView model
+   HoleSetup -> playView model
+   Turns     -> playView model
 
 playView : Model -> Html Msg
 playView model =
@@ -413,11 +463,11 @@ playView model =
             List.map (\n_player -> viewPlayer n_player model) (List.range 0 (model.n_players - 1))
           , [viewDeck model]
           , [viewDiscard model] --probably need another place on the board for cards under consideration
-          , [div [] [text ("setting_up: " ++ (if model.setting_up then "true" else "false"))]]
+          , [div [] [text ("Stage: "  ++ (stageString model.stage))]]
           , [div [] [text ("\nPlaying as: " ++ "Player " ++ (String.fromInt model.perspective))]]
           , [div [] [text ("\nHole: " ++ (String.fromInt model.hole))]]
           , [div [] [text ("\nTurn: " ++ (String.fromInt model.turn))]]
-          , [div [] [text ("\nTurn: Player " ++ (String.fromInt (modBy model.n_players model.turn)))]]
+--          , [div [] [text ("\nTurn: Player " ++ (String.fromInt (modBy model.n_players model.turn)))]]
           , [div [] [text ("Cards remaining in deck: " ++ (String.fromInt (Array.length model.deck)))]]
           , (Array.toList (Array.indexedMap (\i -> \p -> div [] [text ("Player " ++ (String.fromInt i) ++ " Score: " ++ String.fromInt (scorePlayer p))]) model.players))
        ]
