@@ -154,35 +154,37 @@ type Msg
 
 flipCard: Int -> Int -> Model -> Model
 flipCard n_player n_card model = 
-        -- this is an array of players
-        let old_players = model.players in
-        case Array.get n_player old_players of
-            -- this is the player we want to flip a card for
-            Just old_player ->
-                 -- here, we need to decide is a flip is allowed
-                 let n_showing = Array.foldl (+) 0 (Array.map (\c -> if c.show then 1 else 0) old_player.cards) in
-                 let new_lock = n_showing >= 1 in
-                 let old_lock = n_showing >= 2 in
-
-
-
-                 if old_lock then model else
-                 case Array.get n_card old_player.cards of
-                    Just old_card -> 
-                            let new_card = {old_card | show = True } in
-                            let new_player = {old_player | cards = Array.set n_card new_card old_player.cards, lock_flip = new_lock} in
-                            let new_players = Array.set n_player new_player old_players in
-
-                            let new_model = { model | players = new_players } in
-
-                            -- check if all are locked and can exit setup stage
-                           let any_setup = Array.map (playerSettingUp) new_model.players |> Array.toList |> (List.any (\x -> x)) in
-
-                           {new_model | stage = (if any_setup then HoleSetup else Turns)} 
-
-                    Nothing -> model
-            Nothing -> model
-
+        if model.perspective == n_player then
+           -- this is an array of players
+           let old_players = model.players in
+           case Array.get n_player old_players of
+               -- this is the player we want to flip a card for
+               Just old_player ->
+                    -- here, we need to decide is a flip is allowed
+                    let n_showing = Array.foldl (+) 0 (Array.map (\c -> if c.show then 1 else 0) old_player.cards) in
+                    let new_lock = n_showing >= 1 in
+                    let old_lock = n_showing >= 2 in
+   
+   
+   
+                    if old_lock then model else
+                    case Array.get n_card old_player.cards of
+                       Just old_card -> 
+                               let new_card = {old_card | show = True } in
+                               let new_player = {old_player | cards = Array.set n_card new_card old_player.cards, lock_flip = new_lock} in
+                               let new_players = Array.set n_player new_player old_players in
+   
+                               let new_model = { model | players = new_players } in
+   
+                               -- check if all are locked and can exit setup stage
+                              let any_setup = Array.map (playerSettingUp) new_model.players |> Array.toList |> (List.any (\x -> x)) in
+   
+                              {new_model | stage = (if any_setup then HoleSetup else Turns)} 
+   
+                       Nothing -> model
+               Nothing -> model
+        else
+          model
 
 type alias WSName = {id: Int, name: String}
 type alias RustWSResponse2 = { kind: String, values: Array WSName }
@@ -323,8 +325,8 @@ positionPlayer pos =
 
 viewPlayer: Int -> Model -> Html Msg
 viewPlayer n_player model = 
-      case Array.get n_player model.players of
-         Just player -> div  (n_player |> (getPos model) |> positionPlayer) [
+      case (Array.get n_player model.players, Array.get n_player model.player_names) of
+         (Just player,Just name) -> div  (n_player |> (getPos model) |> positionPlayer) [
                           div [
                        --           style "background-color" "orange"
                               ]
@@ -341,10 +343,10 @@ viewPlayer n_player model =
                               , viewCard n_player 4 player.cards "green"
                               , viewCard n_player 5 player.cards "red"
                             ]
-                        , div [] [text ("Player " ++ (String.fromInt n_player))]
+                        , div [] [text name.name]
 
                  ]
-         Nothing -> div [] [] --weird case at begining when deal hasn't happened yet
+         _ -> div [] [] --weird case at begining when deal hasn't happened yet
 
 
 -- this logic is very messy....
@@ -466,7 +468,7 @@ playView model =
           , [viewDeck model]
           , [viewDiscard model] --probably need another place on the board for cards under consideration
           , [div [] [text ("Stage: "  ++ (stageString model.stage))]]
-          , [div [] [text ("\nPlaying as: " ++ "Player " ++ (String.fromInt model.perspective))]]
+--          , [div [] [text ("\nPlaying as: " ++ "Player " ++ (String.fromInt model.perspective))]]
           , [div [] [text ("\nHole: " ++ (String.fromInt model.hole))]]
           , [div [] [text ("\nTurn: " ++ (String.fromInt model.turn))]]
 --          , [div [] [text ("\nTurn: Player " ++ (String.fromInt (modBy model.n_players model.turn)))]]
