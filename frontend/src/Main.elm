@@ -154,7 +154,6 @@ type Msg
 
 flipCard: Int -> Int -> Model -> Model
 flipCard n_player n_card model = 
-        if model.perspective == n_player then
            -- this is an array of players
            let old_players = model.players in
            case Array.get n_player old_players of
@@ -183,8 +182,28 @@ flipCard n_player n_card model =
    
                        Nothing -> model
                Nothing -> model
-        else
-          model
+
+doTurn: Int -> Int -> Model -> Model
+doTurn n_player n_card model = 
+  -- check that it is the player's turn
+  if ((modBy model.n_players model.turn) == model.perspective) then
+    -- just handling the case where we clicked on one of our cards
+    let old_players = model.players in
+
+    case Array.get n_player old_players of
+      Just old_player -> case Array.get n_card old_player.cards of
+                           Just old_card -> if old_card.show then
+                                              model
+                                            else
+                                              let new_card = {old_card | show = True } in
+                                              let new_player = {old_player | cards = Array.set n_card model.discard old_player.cards} in
+                                              let new_players = Array.set n_player new_player old_players in
+                                              {model | players = new_players, discard = new_card, turn = model.turn + 1}
+                           Nothing -> model
+      Nothing -> model
+
+  else
+    model
 
 type alias WSName = {id: Int, name: String}
 type alias RustWSResponse2 = { kind: String, values: Array WSName }
@@ -253,15 +272,22 @@ update msg model =
           Nothing -> Debug.todo "failed to make initial discard"
 
     Flip n_player n_card ->
-      let m = flipCard n_player n_card model in
-      update SendModel m
+      let new_model = case model.stage of
+                        HoleSetup -> if model.perspective == n_player then
+                                       flipCard n_player n_card model
+                                     else 
+                                       model
+                        Turns     -> doTurn n_player n_card model
+                        _         -> model
+      in
+      update SendModel new_model
 
     -- currently moves to discard, but should really move to consideration area...
-    DeckClick ->
-      let (discard,deck) = splitArray 1 model.deck in
-      case (Array.get 0 discard) of
-          Just card -> ({model| deck = deck, discard = {card| show = True}}, Cmd.none)
-          Nothing -> (model, Cmd.none)
+    DeckClick -> (model, Cmd.none)
+--      let (discard,deck) = splitArray 1 model.deck in
+--      case (Array.get 0 discard) of
+--          Just card -> ({model| deck = deck, discard = {card| show = True}}, Cmd.none)
+--          Nothing -> (model, Cmd.none)
 
 -- SUBSCRIPTIONS
 
@@ -470,7 +496,9 @@ playView model =
           , [div [] [text ("Stage: "  ++ (stageString model.stage))]]
 --          , [div [] [text ("\nPlaying as: " ++ "Player " ++ (String.fromInt model.perspective))]]
           , [div [] [text ("\nHole: " ++ (String.fromInt model.hole))]]
+          , [div [] [text ("\nN players: " ++ (String.fromInt model.n_players))]]
           , [div [] [text ("\nTurn: " ++ (String.fromInt model.turn))]]
+          , [div [] [text ("\nPerspective: " ++ (String.fromInt model.perspective))]]
 --          , [div [] [text ("\nTurn: Player " ++ (String.fromInt (modBy model.n_players model.turn)))]]
           , [div [] [text ("Cards remaining in deck: " ++ (String.fromInt (Array.length model.deck)))]]
           , (Array.toList (Array.indexedMap (\i -> \p -> div [] [text ("Player " ++ (String.fromInt i) ++ " Score: " ++ String.fromInt (scorePlayer p))]) model.players))
