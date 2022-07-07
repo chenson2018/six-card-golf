@@ -222,7 +222,12 @@ update msg model =
 
       case ws_json of
         Ok json -> case json.kind of
-                    "players" -> ({model| player_names = json.values, n_players = (List.length json.values)}, Cmd.none)
+                    "players" -> let player_names = json.values in
+                                 let perps = List.indexedMap Tuple.pair player_names in
+                                 let me = List.filter (\w -> (Tuple.second w).name == model.name) perps in   -- TODO use id here somehow or show error....
+                                 case me of
+                                   hd::tl -> ({model| player_names = player_names, n_players = (List.length player_names), perspective = Tuple.first hd}, Cmd.none)
+                                   _ -> Debug.todo "no matching names from websocket???"
                     _ -> Debug.todo "didn't match a kind"
         _ -> let pmodel_json = D.decodeString decodePartial message in
              case pmodel_json of 
@@ -231,10 +236,7 @@ update msg model =
 
     SendModel -> (model, sendEncode (ModelMessage model))
 
-    ClickDeal -> (
-                  model, 
-                  Random.generate Deal (shuffle orderedDeck)
-                 )
+    ClickDeal -> (model , Random.generate Deal (shuffle orderedDeck))
 
     Deal newDeck ->
         let deck_arr = Array.fromList newDeck in
