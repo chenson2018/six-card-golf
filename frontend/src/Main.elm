@@ -54,7 +54,7 @@ type alias Model =
    , stage: Stage
    , hole: Int
    , turn: Int
-   , perspective: Int -- this needs to be gotten from the websocket somehow????
+   , perspective: Int
    , draft : String
    , name : String
    , player_names: Array WSName
