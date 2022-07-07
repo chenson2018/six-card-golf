@@ -57,7 +57,7 @@ type alias Model =
    , perspective: Int -- this needs to be gotten from the websocket somehow????
    , draft : String
    , name : String
-   , player_names: List WSName
+   , player_names: Array WSName
   }
 
 
@@ -98,7 +98,7 @@ init _ =
         0
         ""
         ""
-        [], Cmd.none)
+        (Array.fromList []), Cmd.none)
 
 encodeModel: Model -> Encode.Value
 encodeModel model = 
@@ -185,7 +185,7 @@ flipCard n_player n_card model =
 
 
 type alias WSName = {id: Int, name: String}
-type alias RustWSResponse2 = { kind: String, values: List WSName }
+type alias RustWSResponse2 = { kind: String, values: Array WSName }
 
 
 nameDecoder: D.Decoder WSName
@@ -200,7 +200,7 @@ websocketDecoder =
     D.map2
         RustWSResponse2
         (D.field "kind" D.string)
-        (D.field "values" (D.list nameDecoder))
+        (D.field "values" (D.array nameDecoder))
 
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
@@ -223,10 +223,10 @@ update msg model =
       case ws_json of
         Ok json -> case json.kind of
                     "players" -> let player_names = json.values in
-                                 let perps = List.indexedMap Tuple.pair player_names in
-                                 let me = List.filter (\w -> (Tuple.second w).name == model.name) perps in   -- TODO use id here somehow or show error....
-                                 case me of
-                                   hd::tl -> ({model| player_names = player_names, n_players = (List.length player_names), perspective = Tuple.first hd}, Cmd.none)
+                                 let perps = Array.indexedMap Tuple.pair player_names in
+                                 let me = Array.filter (\w -> (Tuple.second w).name == model.name) perps in   -- TODO use id here somehow or show error....
+                                 case Array.get 0 me of
+                                   Just hd -> ({model| player_names = player_names, n_players = (Array.length player_names), perspective = Tuple.first hd}, Cmd.none)
                                    _ -> Debug.todo "no matching names from websocket???"
                     _ -> Debug.todo "didn't match a kind"
         _ -> let pmodel_json = D.decodeString decodePartial message in
@@ -240,7 +240,7 @@ update msg model =
 
     Deal newDeck ->
         let deck_arr = Array.fromList newDeck in
-        let n_players = List.length model.player_names in
+        let n_players = Array.length model.player_names in
         let (players,deck) = deal n_players dealHelper (Array.empty, deck_arr) in
         -- one more for the discard
         let (discard,final_deck) = splitArray 1 deck in
@@ -427,7 +427,7 @@ roomView model =
         div [] [text ("Draft: " ++ model.draft)]
       , div [] [text ("Stage: "  ++ (stageString model.stage))]
       , div [] [text ("Name: "  ++ model.name )]
-      , div [] [text ("Currently connected players: " ++ (String.join ", " (List.map (\x -> x.name) model.player_names)))]
+      , div [] [text ("Currently connected players: " ++ (String.join ", " (Array.toList (Array.map (\x -> x.name) model.player_names))))]
       , if String.isEmpty model.name then
         div []
         [
