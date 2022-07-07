@@ -138,7 +138,7 @@ decodePartial =
       (D.field "players" (D.array decodePlayer))
       (D.field "stage" decodeStage)
       (D.field "hole" D.int)
-      (D.field "hole" D.int)
+      (D.field "turn" D.int)
 
 -- UPDATE
 
