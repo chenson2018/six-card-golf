@@ -308,7 +308,10 @@ update msg model =
                                          flipCard n_player n_card model
                                        else 
                                          model
-                        Turns       -> doTurn n_player n_card model
+                        Turns       -> if model.perspective == n_player then
+                                         doTurn n_player n_card model
+                                       else
+                                         model
                         Considering -> if (isTurn model) then
                                          let (new_card,new_deck) = splitArray 1 model.deck in
                                          let old_players = model.players in
