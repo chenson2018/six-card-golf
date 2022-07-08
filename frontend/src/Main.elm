@@ -210,7 +210,10 @@ doTurn n_player n_card model =
                                               -- check if a player has flipped over all cards
                                               let end_round = List.any allUp (Array.toList new_players) in
 
-                                              {model | players = new_players, discard = new_card, turn = model.turn + 1, stage = if end_round then EndRound else Turns }
+                                              if end_round then
+                                                {model | players = appendScore new_players, discard = new_card, turn = model.turn + 1, stage = EndRound }
+                                              else 
+                                                {model | players = new_players, discard = new_card, turn = model.turn + 1, stage = Turns }
                            Nothing -> model
       Nothing -> model
 
@@ -281,14 +284,21 @@ update msg model =
     ClickDeal -> (model , Random.generate Deal (shuffle orderedDeck))
 
     Deal newDeck ->
+        let old_players = model.players in
+
         let deck_arr = Array.fromList newDeck in
         let n_players = Array.length model.player_names in
         let (players,deck) = deal n_players dealHelper (Array.empty, deck_arr) in
         -- one more for the discard
         let (discard,final_deck) = splitArray 1 deck in
 
+        let final_players = if model.hole == 0 then
+                              players else
+                            Array.fromList (List.map2 (\o -> \n -> {n | score = o.score}) (Array.toList old_players) (Array.toList players))
+        in
+
         case (Array.get 0 discard) of
-          Just card -> let m = Model final_deck {card | show = True} players n_players HoleSetup (model.hole + 1) 0 model.perspective model.draft model.name model.player_names in
+          Just card -> let m = Model final_deck {card | show = True} final_players  n_players HoleSetup (model.hole + 1) (model.hole) model.perspective model.draft model.name model.player_names in
                        update SendModel m
           Nothing -> Debug.todo "failed to make initial discard"
 
@@ -310,7 +320,12 @@ update msg model =
                                                                       Just old_card -> let new_player = {old_player | cards = Array.set n_card nc old_player.cards} in
                                                                                        let new_players = Array.set n_player new_player old_players in
                                                                                        let end_round = List.any allUp (Array.toList new_players) in
-                                                                                       {model| deck = new_deck, players = new_players, stage = if end_round then EndRound else Turns, turn = model.turn + 1, discard = {old_card|show=True}}
+
+                                                                                       if end_round then
+                                                                                       {model| deck = new_deck, players = appendScore new_players, stage = EndRound, turn = model.turn + 1, discard = {old_card|show=True}}
+                                                                                       else 
+                                                                                       {model| deck = new_deck, players = new_players, stage = Turns, turn = model.turn + 1, discard = {old_card|show=True}}
+                                    
                                                                       Nothing -> model
                                                  Nothing -> model
                                             _ -> model
@@ -482,10 +497,10 @@ roomView : Model -> Html Msg
 roomView model =
   div []
     [
-        div [] [text ("Draft: " ++ model.draft)]
-      , div [] [text ("Stage: "  ++ (stageString model.stage))]
-      , div [] [text ("Name: "  ++ model.name )]
-      , div [] [text ("Currently connected players: " ++ (String.join ", " (Array.toList (Array.map (\x -> x.name) model.player_names))))]
+--        div [] [text ("Draft: " ++ model.draft)]
+--      , div [] [text ("Stage: "  ++ (stageString model.stage))]
+--      , div [] [text ("Name: "  ++ model.name )]
+        div [] [text ("Currently connected players: " ++ (String.join ", " (Array.toList (Array.map (\x -> x.name) model.player_names))))]
       , if String.isEmpty model.name then
         div []
         [
@@ -523,8 +538,21 @@ turnName model =
     Just wsn -> wsn.name
     _ -> "" 
 
+perspName: Int -> Model -> String
+perspName p model = 
+  case Array.get p model.player_names of
+    Just wsn -> wsn.name
+    _ -> "" 
+
+
+appendScore: Array Player -> Array Player
+appendScore players = 
+  Array.map (\p -> {p | score = (scorePlayer p) :: p.score, cards = Array.map (\c -> {c|show=True}) p.cards}) players
+
 playView : Model -> Html Msg
 playView model =
+  let current = if model.stage == EndRound then [] else  [td [] [text ""]] in
+
   div []  
       (List.concat 
        [
@@ -533,17 +561,26 @@ playView model =
           , [viewDiscard model] 
           , [div [] [text ("\nHole: " ++ (String.fromInt model.hole))]]
           , [div [] [text ("\nTurn: " ++ (turnName model))]]
+          , if (model.stage == EndRound && model.hole < 3) then [button [ onClick ClickDeal ] [ text "Start next hole" ]] else []
+          , [div [] []]
+          , [div [] []]
+          , [
+             table 
+             [] 
+             (List.concat [
+                    [tr [] (List.concat [ [th [] [text "Hole"]], List.map (\i -> td [] [text (String.fromInt (i+1))]) (List.range 0 (model.hole-1)), [td [] [text "Total"]]  ])]
+                  , Array.toList (Array.indexedMap (\i -> \p -> tr [] (List.concat [[th [] [text (perspName i model)]], List.map (\s -> td [] [text (String.fromInt s)] ) (List.reverse p.score), current, [td [] [text (String.fromInt (List.sum p.score))]] ]) ) model.players)
+             ])
+            ]
+       ]
+      )
 
-
-
-          , [div [] [text ("Stage: "  ++ (stageString model.stage))]]
 --          , [div [] [text ("\nPlaying as: " ++ "Player " ++ (String.fromInt model.perspective))]]
 --          , [div [] [text ("\nN players: " ++ (String.fromInt model.n_players))]]
 --          , [div [] [text ("\nPerspective: " ++ (String.fromInt model.perspective))]]
 --          , [div [] [text ("\nTurn: Player " ++ (String.fromInt (modBy model.n_players model.turn)))]]
 --          , [div [] [text ("Cards remaining in deck: " ++ (String.fromInt (Array.length model.deck)))]]
 --          , (Array.toList (Array.indexedMap (\i -> \p -> div [] [text ("Player " ++ (String.fromInt i) ++ " Score: " ++ String.fromInt (scorePlayer p))]) model.players))
-       ]
-      )
+--          , (Array.toList (Array.indexedMap (\i -> \p -> div [] [text ((perspName i model)  ++ (if model.hole == 3 then " Final " else "") ++ " Score: " ++ String.fromInt (List.sum p.score))]) model.players))
 
 
