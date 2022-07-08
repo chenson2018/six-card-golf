@@ -243,13 +243,16 @@ update msg model =
   case msg of
 
     DiscardClick -> 
-      case model.stage of
-        Considering -> let (new_card,new_deck) = splitArray 1 model.deck in
-                       case (Array.get 0 new_card) of
-                         Just top -> let m = {model| discard = top, deck = new_deck, turn = model.turn + 1, stage = Turns} in
-                                     update SendModel m
-                         Nothing -> (model, Cmd.none)
-        _ -> (model, Cmd.none)
+      if not (isTurn model) then
+        (model, Cmd.none)
+      else
+        case model.stage of
+          Considering -> let (new_card,new_deck) = splitArray 1 model.deck in
+                         case (Array.get 0 new_card) of
+                           Just top -> let m = {model| discard = top, deck = new_deck, turn = model.turn + 1, stage = Turns} in
+                                       update SendModel m
+                           Nothing -> (model, Cmd.none)
+          _ -> (model, Cmd.none)
 
     DraftChanged draft ->
       ( { model | draft = draft }
