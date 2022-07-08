@@ -64,6 +64,7 @@ type alias Model =
 type Stage
   = RoomSetup
   | HoleSetup 
+  | Considering
   | Turns
   | EndRound
 
@@ -74,6 +75,7 @@ stageString stage =
     HoleSetup -> "HoleSetup"
     Turns -> "Turns"
     EndRound -> "EndRound"
+    Considering -> "Considering"
 
 decodeStage: D.Decoder Stage
 decodeStage = D.string |>
@@ -84,6 +86,7 @@ decodeStage = D.string |>
        "HoleSetup" -> D.succeed HoleSetup
        "Turns"     -> D.succeed Turns
        "EndRound"  -> D.succeed EndRound
+       "Considering" -> D.succeed Considering
        _           -> D.fail "Invalid Stage"
     )
 
@@ -154,6 +157,7 @@ type Msg
   | Send
   | Recv String
   | SendModel
+  | DiscardClick
 
 flipCard: Int -> Int -> Model -> Model
 flipCard n_player n_card model = 
@@ -186,26 +190,26 @@ flipCard n_player n_card model =
                        Nothing -> model
                Nothing -> model
 
+isTurn: Model -> Bool
+isTurn model = 
+  (modBy model.n_players model.turn) == model.perspective
+
 doTurn: Int -> Int -> Model -> Model
 doTurn n_player n_card model = 
   -- check that it is the player's turn
-  if ((modBy model.n_players model.turn) == model.perspective) then
+  if (isTurn model) then
     -- just handling the case where we clicked on one of our cards
     let old_players = model.players in
 
     case Array.get n_player old_players of
       Just old_player -> case Array.get n_card old_player.cards of
-                           Just old_card -> if old_card.show then
-                                              model
-                                            else
-                                              let new_card = {old_card | show = True } in
+                           Just old_card ->   let new_card = {old_card | show = True } in
                                               let new_player = {old_player | cards = Array.set n_card model.discard old_player.cards} in
                                               let new_players = Array.set n_player new_player old_players in
 
                                               -- check if a player has flipped over all cards
                                               let end_round = List.any allUp (Array.toList new_players) in
 
-                                              -- there is some sort of glitch here if I change the stage....
                                               {model | players = new_players, discard = new_card, turn = model.turn + 1, stage = if end_round then EndRound else Turns }
                            Nothing -> model
       Nothing -> model
@@ -234,6 +238,15 @@ websocketDecoder =
 update : Msg -> Model -> (Model, Cmd Msg)
 update msg model =
   case msg of
+
+    DiscardClick -> 
+      case model.stage of
+        Considering -> let (new_card,new_deck) = splitArray 1 model.deck in
+                       case (Array.get 0 new_card) of
+                         Just top -> let m = {model| discard = top, deck = new_deck, turn = model.turn + 1, stage = Turns} in
+                                     update SendModel m
+                         Nothing -> (model, Cmd.none)
+        _ -> (model, Cmd.none)
 
     DraftChanged draft ->
       ( { model | draft = draft }
@@ -281,21 +294,42 @@ update msg model =
 
     Flip n_player n_card ->
       let new_model = case model.stage of
-                        HoleSetup -> if model.perspective == n_player then
-                                       flipCard n_player n_card model
-                                     else 
-                                       model
-                        Turns     -> doTurn n_player n_card model
+                        HoleSetup   -> if model.perspective == n_player then
+                                         flipCard n_player n_card model
+                                       else 
+                                         model
+                        Turns       -> doTurn n_player n_card model
+                        Considering -> if (isTurn model) then
+                                         let (new_card,new_deck) = splitArray 1 model.deck in
+                                         let old_players = model.players in
+
+                                         case (Array.get 0 new_card) of
+                                            Just nc ->
+                                               case Array.get n_player old_players of
+                                                 Just old_player -> case Array.get n_card old_player.cards of
+                                                                      Just old_card -> let new_player = {old_player | cards = Array.set n_card nc old_player.cards} in
+                                                                                       let new_players = Array.set n_player new_player old_players in
+                                                                                       let end_round = List.any allUp (Array.toList new_players) in
+                                                                                       {model| deck = new_deck, players = new_players, stage = if end_round then EndRound else Turns, turn = model.turn + 1, discard = {old_card|show=True}}
+                                                                      Nothing -> model
+                                                 Nothing -> model
+                                            _ -> model
+                                       else
+                                         model
                         _ -> model
       in
       update SendModel new_model
 
-    -- currently moves to discard, but should really move to consideration area...
-    DeckClick -> (model, Cmd.none)
---      let (discard,deck) = splitArray 1 model.deck in
---      case (Array.get 0 discard) of
---          Just card -> ({model| deck = deck, discard = {card| show = True}}, Cmd.none)
---          Nothing -> (model, Cmd.none)
+    DeckClick ->
+      if (isTurn model) then
+        case model.stage of 
+          Turns -> case Array.get 0 model.deck of
+                      Just top_card -> let m = {model | deck = (Array.set 0 {top_card | show = True} model.deck), stage = Considering} in
+                                       update SendModel m
+                      _ -> (model, Cmd.none)
+          _ -> (model, Cmd.none)
+      else
+        (model, Cmd.none)
 
 -- SUBSCRIPTIONS
 
@@ -407,22 +441,22 @@ getPos model n_player =
 
 viewDeck: Model -> Html Msg
 viewDeck model = 
-  let dummy = {face = Cards.Knight, suit = Cards.Spades, show = False} in
-
-  div
-  [ style "font-size" "10em"
-    , style "user-select" "none"
-    , style "line-height" "150px"
-    , style "position" "fixed"
-    , style "left" "45%"
-    , style "top" "40%"
-  ]
-  [
-  span [onClick DeckClick, style "color" "black"] 
-       [ 
-        text (if (Array.length model.deck > 0) then (cardText dummy) else "")
-       ]
-   ]
+  case Array.get 0 model.deck of
+    Just card ->  div
+                  [ style "font-size" "10em"
+                    , style "user-select" "none"
+                    , style "line-height" "150px"
+                    , style "position" "fixed"
+                    , style "left" "45%"
+                    , style "top" "40%"
+                  ]
+                  [
+                  span [onClick DeckClick, style "color" (if card.show then (cardColor card) else "black")] 
+                       [ 
+                        text (if (Array.length model.deck > 0) then (cardText card) else "")
+                       ]
+                   ]
+    _ -> div [] []
 
 viewDiscard: Model -> Html Msg
 viewDiscard model = 
@@ -433,7 +467,7 @@ viewDiscard model =
        , style "position" "fixed"
        , style "left" "52%"
        , style "top" "40%"]
-        [span [style "color" (cardColor model.discard)] [text (cardText model.discard)]]
+        [span [onClick DiscardClick, style "color" (cardColor model.discard)] [text (cardText model.discard)]]
 
 
 view : Model -> Html Msg
@@ -481,6 +515,7 @@ viewSelect model =
    HoleSetup -> playView model
    Turns     -> playView model
    EndRound  -> playView model
+   Considering -> playView model
 
 turnName: Model -> String
 turnName model = 
