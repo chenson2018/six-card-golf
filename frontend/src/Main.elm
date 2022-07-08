@@ -480,7 +480,7 @@ viewDiscard model =
        , style "user-select" "none"
        , style "line-height" "150px"
        , style "position" "fixed"
-       , style "left" "52%"
+       , style "left" "calc(45% + 125px)"
        , style "top" "40%"]
         [span [onClick DiscardClick, style "color" (cardColor model.discard)] [text (cardText model.discard)]]
 
@@ -554,7 +554,7 @@ appendScore players =
 
 playView : Model -> Html Msg
 playView model =
-  let n_holes = 3 in
+  let n_holes = 9 in
   let current = (List.repeat (n_holes-model.hole+(if model.stage == EndRound then 0 else 1)) [td [] [text ""]]) in
 
   div []  
