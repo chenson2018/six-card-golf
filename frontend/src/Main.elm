@@ -551,7 +551,8 @@ appendScore players =
 
 playView : Model -> Html Msg
 playView model =
-  let current = if model.stage == EndRound then [] else  [td [] [text ""]] in
+  let n_holes = 3 in
+  let current = (List.repeat (n_holes-model.hole+(if model.stage == EndRound then 0 else 1)) [td [] [text ""]]) in
 
   div []  
       (List.concat 
@@ -561,15 +562,15 @@ playView model =
           , [viewDiscard model] 
           , [div [] [text ("\nHole: " ++ (String.fromInt model.hole))]]
           , [div [] [text ("\nTurn: " ++ (turnName model))]]
-          , if (model.stage == EndRound && model.hole < 3) then [button [ onClick ClickDeal ] [ text "Start next hole" ]] else []
+          , if (model.stage == EndRound && model.hole < n_holes) then [button [ onClick ClickDeal ] [ text "Start next hole" ]] else []
           , [div [] []]
           , [div [] []]
           , [
              table 
              [] 
              (List.concat [
-                    [tr [] (List.concat [ [th [] [text "Hole"]], List.map (\i -> td [] [text (String.fromInt (i+1))]) (List.range 0 (model.hole-1)), [td [] [text "Total"]]  ])]
-                  , Array.toList (Array.indexedMap (\i -> \p -> tr [] (List.concat [[th [] [text (perspName i model)]], List.map (\s -> td [] [text (String.fromInt s)] ) (List.reverse p.score), current, [td [] [text (String.fromInt (List.sum p.score))]] ]) ) model.players)
+                    [tr [] (List.concat [ [th [] [text "Hole"]], List.map (\i -> td [] [text (String.fromInt (i+1))]) (List.range 0 (n_holes-1)), [td [] [text "Total"]]  ])]
+                  , Array.toList (Array.indexedMap (\i -> \p -> tr [] (List.concat [[th [] [text (perspName i model)]], List.map (\s -> td [] [text (String.fromInt s)] ) (List.reverse p.score), List.concat current, [td [] [text (String.fromInt (List.sum p.score))]] ]) ) model.players)
              ])
             ]
        ]
