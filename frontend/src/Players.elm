@@ -6,12 +6,12 @@ import Json.Decode as D
 import Array exposing (Array)
 import Cards exposing (..)
 
-type alias Player = {cards: Array Card, score: Int, lock_flip: Bool}
+type alias Player = {cards: Array Card, score: List Int, lock_flip: Bool}
 
 encodePlayer: Player -> Encode.Value
 encodePlayer player = 
    Encode.object [  ("cards", Encode.array encodeCard player.cards)
-                  , ("score", Encode.int player.score)
+                  , ("score", Encode.list Encode.int player.score)
                   , ("lock_flip", Encode.bool player.lock_flip) ]
 
 
@@ -20,7 +20,7 @@ decodePlayer =
   D.map3
     Player 
       (D.field "cards" (D.array decodeCard))
-      (D.field "score" D.int)
+      (D.field "score" (D.list D.int))
       (D.field "lock_flip" D.bool)
 
 playerSettingUp: Player -> Bool
@@ -38,9 +38,24 @@ dealHelper tup =
     case tup of
        (player_arr, deck) -> 
                let (new_player,new_deck) = splitArray 6 deck in
-               (Array.push {cards = new_player, score = 0, lock_flip = False} player_arr, new_deck)
+               (Array.push {cards = new_player, score = [], lock_flip = False} player_arr, new_deck)
+
+allUp: Player -> Bool
+allUp player = 
+  let facedown = Array.filter (\c -> not c.show ) player.cards in
+  Array.isEmpty facedown
 
 deal: Int -> (a -> a) -> a -> a
 deal i f acc = 
         if i <= 0 then acc else deal (i-1) f (f acc)
+
+
+scorePlayer: Player -> Int
+scorePlayer player = 
+        let top_row = Array.toList (Array.slice 0 3 player.cards) in
+        let bot_row = Array.toList (Array.slice 3 6 player.cards) in
+        let zip = List.map2 Tuple.pair top_row bot_row in
+        let vals = List.map scoreCol zip in
+        List.foldl (+) 0 vals
+
 

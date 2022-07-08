@@ -207,3 +207,11 @@ decodeCard =
       (D.field "face" decodeFace)
       (D.field "suit" decodeSuit)
       (D.field "show" D.bool)
+
+
+scoreCol: (Card,Card) -> Int
+scoreCol rows = 
+    case rows of
+    (top,bot) -> if top.face == bot.face then 0 else (cardVal bot)+(cardVal top)
+
+

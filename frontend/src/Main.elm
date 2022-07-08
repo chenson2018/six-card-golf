@@ -65,6 +65,7 @@ type Stage
   = RoomSetup
   | HoleSetup 
   | Turns
+  | EndRound
 
 stageString: Stage -> String
 stageString stage = 
@@ -72,6 +73,7 @@ stageString stage =
     RoomSetup -> "RoomSetup"
     HoleSetup -> "HoleSetup"
     Turns -> "Turns"
+    EndRound -> "EndRound"
 
 decodeStage: D.Decoder Stage
 decodeStage = D.string |>
@@ -81,6 +83,7 @@ decodeStage = D.string |>
        "RoomSetup" -> D.succeed RoomSetup
        "HoleSetup" -> D.succeed HoleSetup
        "Turns"     -> D.succeed Turns
+       "EndRound"  -> D.succeed EndRound
        _           -> D.fail "Invalid Stage"
     )
 
@@ -198,7 +201,12 @@ doTurn n_player n_card model =
                                               let new_card = {old_card | show = True } in
                                               let new_player = {old_player | cards = Array.set n_card model.discard old_player.cards} in
                                               let new_players = Array.set n_player new_player old_players in
-                                              {model | players = new_players, discard = new_card, turn = model.turn + 1}
+
+                                              -- check if a player has flipped over all cards
+                                              let end_round = List.any allUp (Array.toList new_players) in
+
+                                              -- there is some sort of glitch here if I change the stage....
+                                              {model | players = new_players, discard = new_card, turn = model.turn + 1, stage = if end_round then EndRound else Turns }
                            Nothing -> model
       Nothing -> model
 
@@ -278,7 +286,7 @@ update msg model =
                                      else 
                                        model
                         Turns     -> doTurn n_player n_card model
-                        _         -> model
+                        _ -> model
       in
       update SendModel new_model
 
@@ -394,18 +402,6 @@ getPos model n_player =
                     _ -> Debug.todo "invalid perspective"
             _ -> Debug.todo ((String.fromInt model.n_players) ++ " players not implemented")
 
-scoreCol: (Card,Card) -> Int
-scoreCol rows = 
-    case rows of
-    (top,bot) -> if top.face == bot.face then 0 else (Cards.cardVal bot)+(Cards.cardVal top)
-
-scorePlayer: Player -> Int
-scorePlayer player = 
-        let top_row = Array.toList (Array.slice 0 3 player.cards) in
-        let bot_row = Array.toList (Array.slice 3 6 player.cards) in
-        let zip = List.map2 Tuple.pair top_row bot_row in
-        let vals = List.map scoreCol zip in
-        List.foldl (+) 0 vals
 
 -- I need something to view cards independent of actions
 
@@ -484,6 +480,13 @@ viewSelect model =
    RoomSetup -> roomView model
    HoleSetup -> playView model
    Turns     -> playView model
+   EndRound  -> playView model
+
+turnName: Model -> String
+turnName model = 
+  case Array.get (modBy model.n_players model.turn) model.player_names of
+    Just wsn -> wsn.name
+    _ -> "" 
 
 playView : Model -> Html Msg
 playView model =
@@ -492,16 +495,19 @@ playView model =
        [
             List.map (\n_player -> viewPlayer n_player model) (List.range 0 (model.n_players - 1))
           , [viewDeck model]
-          , [viewDiscard model] --probably need another place on the board for cards under consideration
+          , [viewDiscard model] 
+          , [div [] [text ("\nHole: " ++ (String.fromInt model.hole))]]
+          , [div [] [text ("\nTurn: " ++ (turnName model))]]
+
+
+
           , [div [] [text ("Stage: "  ++ (stageString model.stage))]]
 --          , [div [] [text ("\nPlaying as: " ++ "Player " ++ (String.fromInt model.perspective))]]
-          , [div [] [text ("\nHole: " ++ (String.fromInt model.hole))]]
-          , [div [] [text ("\nN players: " ++ (String.fromInt model.n_players))]]
-          , [div [] [text ("\nTurn: " ++ (String.fromInt model.turn))]]
-          , [div [] [text ("\nPerspective: " ++ (String.fromInt model.perspective))]]
+--          , [div [] [text ("\nN players: " ++ (String.fromInt model.n_players))]]
+--          , [div [] [text ("\nPerspective: " ++ (String.fromInt model.perspective))]]
 --          , [div [] [text ("\nTurn: Player " ++ (String.fromInt (modBy model.n_players model.turn)))]]
-          , [div [] [text ("Cards remaining in deck: " ++ (String.fromInt (Array.length model.deck)))]]
-          , (Array.toList (Array.indexedMap (\i -> \p -> div [] [text ("Player " ++ (String.fromInt i) ++ " Score: " ++ String.fromInt (scorePlayer p))]) model.players))
+--          , [div [] [text ("Cards remaining in deck: " ++ (String.fromInt (Array.length model.deck)))]]
+--          , (Array.toList (Array.indexedMap (\i -> \p -> div [] [text ("Player " ++ (String.fromInt i) ++ " Score: " ++ String.fromInt (scorePlayer p))]) model.players))
        ]
       )
 

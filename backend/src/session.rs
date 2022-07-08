@@ -181,7 +181,7 @@ impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsChatSession {
                         })
                     }
                     "model" => {
-                       println!("{:?}", &text);
+//                       println!("{:?}", &text);
 //                       ctx.text(text);
 
                        self.addr.do_send(server::ModelMessage {
