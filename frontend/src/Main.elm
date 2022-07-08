@@ -512,10 +512,13 @@ roomView model =
            , value model.draft
            ]
            []
-          ,  button [ onClick Send] [ text "Submit" ]
+          , button [ onClick Send] [ text "Submit" ]
         ]
       else  
-        button [ onClick ClickDeal ] [ text "Begin game" ]
+        if (Array.length model.player_names > 1) then
+          button [ onClick ClickDeal ] [ text "Begin game" ]
+        else 
+          div [] []
     ]
 
 ifIsEnter : msg -> D.Decoder msg
