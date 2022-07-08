@@ -565,9 +565,6 @@ playView model =
           , [viewDiscard model] 
           , [div [] [text ("\nHole: " ++ (String.fromInt model.hole))]]
           , [div [] [text ("\nTurn: " ++ (turnName model))]]
-          , if (model.stage == EndRound && model.hole < n_holes) then [button [ onClick ClickDeal ] [ text "Start next hole" ]] else []
-          , [div [] []]
-          , [div [] []]
           , [
              table 
              [] 
@@ -576,15 +573,7 @@ playView model =
                   , Array.toList (Array.indexedMap (\i -> \p -> tr [] (List.concat [[th [] [text (perspName i model)]], List.map (\s -> td [] [text (String.fromInt s)] ) (List.reverse p.score), List.concat current, [td [] [text (String.fromInt (List.sum p.score))]] ]) ) model.players)
              ])
             ]
+          , if (model.stage == EndRound && model.hole < n_holes) then [button [ onClick ClickDeal ] [ text "Start next hole" ]] else []
        ]
       )
-
---          , [div [] [text ("\nPlaying as: " ++ "Player " ++ (String.fromInt model.perspective))]]
---          , [div [] [text ("\nN players: " ++ (String.fromInt model.n_players))]]
---          , [div [] [text ("\nPerspective: " ++ (String.fromInt model.perspective))]]
---          , [div [] [text ("\nTurn: Player " ++ (String.fromInt (modBy model.n_players model.turn)))]]
---          , [div [] [text ("Cards remaining in deck: " ++ (String.fromInt (Array.length model.deck)))]]
---          , (Array.toList (Array.indexedMap (\i -> \p -> div [] [text ("Player " ++ (String.fromInt i) ++ " Score: " ++ String.fromInt (scorePlayer p))]) model.players))
---          , (Array.toList (Array.indexedMap (\i -> \p -> div [] [text ((perspName i model)  ++ (if model.hole == 3 then " Final " else "") ++ " Score: " ++ String.fromInt (List.sum p.score))]) model.players))
-
 
