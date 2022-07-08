@@ -52,19 +52,8 @@ deal i f acc =
 
 scorePlayer: Player -> Int
 scorePlayer player = 
-        let c1 = case (Array.get 0 player.cards, Array.get 3 player.cards) of
-                   (Just t,Just b) -> scoreCol (t,b)
-                   _ -> 99999
-        in
-
-        let c2 = case (Array.get 1 player.cards, Array.get 4 player.cards) of
-                   (Just t,Just b) -> scoreCol (t,b)
-                   _ -> 99999
-        in
-
-        let c3 = case (Array.get 2 player.cards, Array.get 5 player.cards) of
-                   (Just t,Just b) -> scoreCol (t,b)
-                   _ -> 99999
-        in
-
-        c1+c2+c3
+  let top_row = Array.toList (Array.slice 0 3 player.cards) in
+  let bot_row = Array.toList (Array.slice 3 6 player.cards) in
+  let zip = List.map2 Tuple.pair top_row bot_row in
+  let vals = List.map scoreCol zip in
+  List.foldl (+) 0 vals
