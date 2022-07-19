@@ -10,21 +10,36 @@ import Actions exposing (..)
 import Model exposing (..)
 import Stage exposing (..)
 
-viewCard: Int -> Int -> Array Card -> String -> Html Msg
-viewCard n_player idx player color = 
-  let card = (Maybe.withDefault cardDefault (Array.get idx player)) in
+import Svg
+import Svg.Attributes as SvgAttr
 
-  span
-   [ 
-      onClick (Flip n_player idx)
-    , style "font-size" "10em"
-    , style "color" (cardColor card)
-    , style "user-select" "none"
-    , style "line-height" "150px"
-   ] 
-   [ 
-      text (cardText card) 
-   ]      
+viewCard: Msg -> Array Card -> Html Msg
+viewCard msg player = 
+  let card = case msg of
+               Flip n_player idx -> (Maybe.withDefault cardDefault (Array.get idx player))
+               DiscardClick      -> (Maybe.withDefault cardDefault (Array.get 0 player))
+               DeckClick         -> (Maybe.withDefault cardDefault (Array.get 0 player))
+               _ -> Debug.todo "invalid action assigned to viewCard"
+  in
+
+
+  Svg.svg
+      [ SvgAttr.width "84.5375"
+      , SvgAttr.height "122.32"
+      , onClick msg
+      ]
+      [         {- The cards have a natural width of 169.075 and a height of 244.640. Its
+      center is located at (+98.0375, +122.320). -}
+              {- The original back color was #0062ff. The color of the back card can
+      be changed by setting the fill on the USE-element. -}
+      Svg.use
+          [ attribute "href" (cardHref card)
+          , SvgAttr.x "0"
+          , SvgAttr.y "0"
+          , SvgAttr.transform "scale(0.5)"
+          ]
+          []
+      ]
 
 
 type Position = 
@@ -65,16 +80,16 @@ viewPlayer n_player model =
                           div [
                               ]
                             [
-                                viewCard n_player 0 player.cards "green"
-                              , viewCard n_player 1 player.cards "red"
-                              , viewCard n_player 2 player.cards "green"
+                                viewCard (Flip n_player 0) player.cards
+                              , viewCard (Flip n_player 1) player.cards
+                              , viewCard (Flip n_player 2) player.cards
                             ]
                         , div [
                               ]
                             [
-                                viewCard n_player 3 player.cards "red"
-                              , viewCard n_player 4 player.cards "green"
-                              , viewCard n_player 5 player.cards "red"
+                                viewCard (Flip n_player 3) player.cards
+                              , viewCard (Flip n_player 4) player.cards
+                              , viewCard (Flip n_player 5) player.cards
                             ]
                         , div [] [text name.name]
 
@@ -114,11 +129,8 @@ viewDeck model =
                     , style "top" "40%"
                   ]
                   [
-                  span [onClick DeckClick, style "color" (if card.show then (cardColor card) else "black")] 
-                       [ 
-                        text (if (Array.length model.deck > 0) then (cardText card) else "")
-                       ]
-                   ]
+                    viewCard DeckClick model.deck
+                  ]
     _ -> div [] []
 
 viewDiscard: Model -> Html Msg
@@ -130,8 +142,9 @@ viewDiscard model =
        , style "position" "fixed"
        , style "left" "calc(45% + 125px)"
        , style "top" "40%"]
-        [span [onClick DiscardClick, style "color" (cardColor model.discard)] [text (cardText model.discard)]]
-
+        [
+          viewCard DiscardClick (Array.fromList [model.discard])
+        ]
 
 roomView : Model -> Html Msg
 roomView model =

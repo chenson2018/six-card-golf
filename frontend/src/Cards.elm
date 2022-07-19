@@ -136,56 +136,70 @@ cardColor card =
     Clubs -> "black"
 
 
+cardHref: Card -> String
+cardHref card = 
+  let base = "/assets/svg-cards.svg#" in
+
+  if not card.show then
+    base ++ "back"    
+  else
+    let suit = suitString card.suit in
+    let face = faceString card.face in
+
+    base ++ suit ++ "_" ++ face
+
+faceString: Face -> String
+faceString face = 
+  case face of 
+    Ace    -> "1"
+    Two    -> "2"
+    Three  -> "3"
+    Four   -> "4"
+    Five   -> "5"
+    Six    -> "6"
+    Seven  -> "7"
+    Eight  -> "8"
+    Nine   -> "9"
+    Ten    -> "10"
+    Jack   -> "jack"
+    Queen  -> "queen"
+    Knight -> "knight"
+    King   -> "king"
+
+suitString: Suit -> String
+suitString suit =
+  case suit of
+    Spades   -> "spade"
+    Hearts   -> "heart"
+    Diamonds -> "diamond"
+    Clubs    -> "club"
 
 encodeCard: Card -> Encode.Value
 encodeCard card = 
-  let face = case card.face of 
-                Ace -> "Ace"
-                Two -> "Two"
-                Three -> "Three"
-                Four -> "Four"
-                Five -> "Five"
-                Six -> "Six"
-                Seven -> "Seven"
-                Eight -> "Eight"
-                Nine -> "Nine"
-                Ten -> "Ten"
-                Jack -> "Jack"
-                Queen -> "Queen"
-                Knight -> "Knight"
-                King -> "King"
-  in
-
-  let suit = case card.suit of
-                 Spades -> "Spades"
-                 Hearts -> "Hearts"
-                 Diamonds -> "Diamonds"
-                 Clubs -> "Clubs"
-  in
-
+  let face = faceString card.face in
+  let suit = suitString card.suit in
   Encode.object [ ("suit", Encode.string suit), ("face", Encode.string face), ("show", Encode.bool card.show) ]
-
 
 decodeFace: D.Decoder Face
 decodeFace = D.string |>
   D.andThen
     (\str ->
       case str of
-       "Ace"    -> D.succeed Ace
-       "Two"    -> D.succeed Two
-       "Three"  -> D.succeed Three
-       "Four"   -> D.succeed Four
-       "Five"   -> D.succeed Five
-       "Six"    -> D.succeed Six
-       "Seven"  -> D.succeed Seven
-       "Eight"  -> D.succeed Eight
-       "Nine"   -> D.succeed Nine
-       "Ten"    -> D.succeed Ten
-       "Jack"   -> D.succeed Jack
-       "Queen"  -> D.succeed Queen
-       "Knight" -> D.succeed Knight
-       "King"   -> D.succeed King
-       _          -> D.fail "Invalid Suit"
+       "1"      -> D.succeed Ace
+       "2"      -> D.succeed Two
+       "3"      -> D.succeed Three
+       "4"      -> D.succeed Four
+       "5"      -> D.succeed Five
+       "6"      -> D.succeed Six
+       "7"      -> D.succeed Seven
+       "8"      -> D.succeed Eight
+       "9"      -> D.succeed Nine
+       "10"     -> D.succeed Ten
+       "jack"   -> D.succeed Jack
+       "queen"  -> D.succeed Queen
+       "knight" -> D.succeed Knight
+       "king"   -> D.succeed King
+       _        -> D.fail "Invalid Suit"
     )
 
 decodeSuit: D.Decoder Suit
@@ -193,10 +207,10 @@ decodeSuit = D.string |>
   D.andThen
     (\str ->
       case str of
-       "Spades"   -> D.succeed Spades
-       "Hearts"   -> D.succeed Hearts
-       "Diamonds" -> D.succeed Diamonds
-       "Clubs"    -> D.succeed Clubs
+       "spade"   -> D.succeed Spades
+       "heart"   -> D.succeed Hearts
+       "diamond" -> D.succeed Diamonds
+       "club"    -> D.succeed Clubs
        _          -> D.fail "Invalid Suit"
     )
 
