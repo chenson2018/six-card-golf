@@ -24,9 +24,10 @@ viewCard msg player =
 
 
   Svg.svg
-      [ SvgAttr.width "84.5375"
-      , SvgAttr.height "122.32"
-      , onClick msg
+      [
+        onClick msg  
+      , SvgAttr.width  "calc(0.66*170)"
+      , SvgAttr.height "calc(0.66*255)"
       ]
       [         {- The cards have a natural width of 169.075 and a height of 244.640. Its
       center is located at (+98.0375, +122.320). -}
@@ -36,7 +37,7 @@ viewCard msg player =
           [ attribute "href" (cardHref card)
           , SvgAttr.x "0"
           , SvgAttr.y "0"
-          , SvgAttr.transform "scale(0.5)"
+          , SvgAttr.transform "scale(0.66)"
           ]
           []
       ]
