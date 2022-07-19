@@ -57,3 +57,8 @@ scorePlayer player =
   let zip = List.map2 Tuple.pair top_row bot_row in
   let vals = List.map scoreCol zip in
   List.foldl (+) 0 vals
+
+appendScore: Array Player -> Array Player
+appendScore players = 
+  Array.map (\p -> {p | score = (scorePlayer p) :: p.score, cards = Array.map (\c -> {c|show=True}) p.cards}) players
+
