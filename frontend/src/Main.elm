@@ -77,7 +77,10 @@ subscriptions _ =
 
 view : Model -> Html Msg
 view model =
-    div [ class "container" ]
+    div [
+          class "container"
+        , style "user-select" "none"
+        ]
         [ h3 [] [ text "Six Card Golf" ]
         , viewSelect model
         ]
